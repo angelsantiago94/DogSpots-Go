@@ -1,5 +1,5 @@
-# DogSpots - entorno completo (API + proxy inverso)
-# Uso:  cp .env.example .env  &&  docker compose up -d --build
+# DogSpots - API local (Nginx se ejecuta en el host de producción)
+# Uso: crear .env con JWT_SECRET y ejecutar docker compose up -d --build
 
 services:
   api:

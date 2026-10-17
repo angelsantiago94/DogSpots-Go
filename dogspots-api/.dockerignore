@@ -1,0 +1,10 @@
+.git
+.env
+api
+bin/
+**/build/
+**/dist/
+*.db
+*.db-shm
+*.db-wal
+photos/
