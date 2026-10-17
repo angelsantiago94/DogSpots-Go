@@ -1,0 +1,893 @@
+openapi: 3.0.3
+info:
+  title: DogSpots API
+  version: 0.1.0
+  description: |
+    API para compartir los mejores lugares donde llevar a tu perro.
+
+    Convenciones:
+    - Base path: `/api/v1`
+    - IDs: UUID (v7 recomendado, generados en la aplicación)
+    - Fechas: ISO 8601 en UTC
+    - Coordenadas: `lat` en [-90, 90], `lng` en [-180, 180]
+    - Errores: `application/problem+json` (RFC 7807)
+    - Paginación: por cursor (`limit` + `cursor`)
+    - Auth: `Authorization: Bearer <access_token>`
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local
+tags:
+  - name: Auth
+  - name: Users
+  - name: Places
+  - name: Photos
+  - name: Comments
+  - name: Ratings
+  - name: Tags
+  - name: Reports
+  - name: System
+
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      summary: Comprobación de salud
+      security: []
+      responses:
+        '200':
+          description: Servicio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  # ───────────── AUTH ─────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar usuario
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Usuario creado y sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar tokens
+      description: |
+        Rotación de refresh token: cada uso invalida el anterior y devuelve un par nuevo.
+        Si se reutiliza un refresh token ya rotado, se revoca toda la familia de sesión.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: Nuevo par de tokens
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión (revoca el refresh token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Sesión cerrada }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────── USERS ─────────────
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Perfil del usuario autenticado
+      responses:
+        '200':
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Users]
+      summary: Actualizar perfil
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserRequest' }
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Users]
+      summary: Eliminar cuenta y sus datos
+      description: Requerido por Google Play para apps con cuentas. Elimina o anonimiza lugares, fotos y reseñas del usuario.
+      responses:
+        '204': { description: Cuenta eliminada }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Perfil público de un usuario
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/UserId' }
+      responses:
+        '200':
+          description: Perfil público
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicUser' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────── PLACES ─────────────
+  /places:
+    get:
+      tags: [Places]
+      summary: Buscar lugares
+      description: |
+        Dos modos geográficos (mutuamente excluyentes):
+        - **bbox**: `min_lat`, `min_lng`, `max_lat`, `max_lng` (el mapa visible).
+        - **radio**: `lat`, `lng`, `radius_m`.
+
+        Si no se indica ninguno, devuelve los más recientes. Es público (sin token).
+      security: []
+      parameters:
+        - { name: min_lat, in: query, schema: { type: number, format: double } }
+        - { name: min_lng, in: query, schema: { type: number, format: double } }
+        - { name: max_lat, in: query, schema: { type: number, format: double } }
+        - { name: max_lng, in: query, schema: { type: number, format: double } }
+        - { name: lat, in: query, schema: { type: number, format: double } }
+        - { name: lng, in: query, schema: { type: number, format: double } }
+        - { name: radius_m, in: query, schema: { type: integer, minimum: 1, maximum: 50000, default: 5000 } }
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/PlaceCategory' }
+        - name: tags
+          in: query
+          description: Slugs de etiquetas separados por coma (se exige que tenga todas)
+          schema: { type: string, example: 'sin-correa,agua' }
+        - name: min_rating
+          in: query
+          schema: { type: number, minimum: 1, maximum: 5 }
+        - name: q
+          in: query
+          description: Texto en título o descripción
+          schema: { type: string, maxLength: 100 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [recent, rating, distance], default: recent }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Lista de lugares
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlaceList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      tags: [Places]
+      summary: Crear lugar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePlaceRequest' }
+      responses:
+        '201':
+          description: Lugar creado
+          headers:
+            Location:
+              schema: { type: string, example: /api/v1/places/0190f3a2-... }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Place' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /places/{placeId}:
+    parameters:
+      - { $ref: '#/components/parameters/PlaceId' }
+    get:
+      tags: [Places]
+      summary: Detalle de un lugar
+      security: []
+      responses:
+        '200':
+          description: Lugar con fotos y etiquetas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Place' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Places]
+      summary: Editar lugar (solo el autor)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePlaceRequest' }
+      responses:
+        '200':
+          description: Lugar actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Place' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Places]
+      summary: Eliminar lugar (solo el autor)
+      responses:
+        '204': { description: Eliminado }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/me/places:
+    get:
+      tags: [Places]
+      summary: Lugares creados por el usuario autenticado
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Lista de lugares
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlaceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────── PHOTOS ─────────────
+  /places/{placeId}/photos:
+    parameters:
+      - { $ref: '#/components/parameters/PlaceId' }
+    post:
+      tags: [Photos]
+      summary: Subir foto a un lugar
+      description: |
+        `multipart/form-data`. Máx. 5 MB, formatos JPEG/PNG/WebP, máx. 8 fotos por lugar.
+        El servidor valida el tipo real del fichero (no solo la extensión), elimina metadatos EXIF
+        (incluida la geolocalización) y genera miniaturas.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                caption: { type: string, maxLength: 200 }
+      responses:
+        '201':
+          description: Foto subida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Photo' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415':
+          description: Tipo de fichero no soportado
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /places/{placeId}/photos/{photoId}:
+    delete:
+      tags: [Photos]
+      summary: Eliminar foto (autor de la foto o del lugar)
+      parameters:
+        - { $ref: '#/components/parameters/PlaceId' }
+        - { $ref: '#/components/parameters/PhotoId' }
+      responses:
+        '204': { description: Eliminada }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────── COMMENTS ─────────────
+  /places/{placeId}/comments:
+    parameters:
+      - { $ref: '#/components/parameters/PlaceId' }
+    get:
+      tags: [Comments]
+      summary: Comentarios de un lugar
+      description: |
+        Devuelve solo los comentarios de primer nivel, con `reply_count`.
+        Las respuestas se piden aparte con `GET /comments/{commentId}/replies`.
+      security: []
+      parameters:
+        - name: sort
+          in: query
+          schema: { type: string, enum: [recent, oldest], default: recent }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Lista de comentarios
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentList' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Comments]
+      summary: Comentar un lugar o responder a un comentario
+      description: |
+        Sin `reply_to_comment_id` crea un comentario de primer nivel.
+        Con `reply_to_comment_id` crea una respuesta a ese comentario (que debe ser del mismo lugar).
+
+        **Un solo nivel de anidación:** si el comentario al que se responde ya es una respuesta,
+        la nueva se agrupa bajo el mismo comentario raíz (`parent_id`) y `reply_to` indica a quién
+        se contesta. Esto mantiene la UI móvil legible y las consultas simples.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommentRequest' }
+      responses:
+        '201':
+          description: Comentario creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /comments/{commentId}/replies:
+    get:
+      tags: [Comments]
+      summary: Respuestas de un comentario de primer nivel
+      description: Ordenadas de más antigua a más reciente, como una conversación.
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/CommentId' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Lista de respuestas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentList' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /comments/{commentId}:
+    parameters:
+      - { $ref: '#/components/parameters/CommentId' }
+    patch:
+      tags: [Comments]
+      summary: Editar comentario (solo el autor)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCommentRequest' }
+      responses:
+        '200':
+          description: Comentario actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Comments]
+      summary: Eliminar comentario (solo el autor)
+      description: |
+        Si el comentario tiene respuestas, se elimina de forma lógica: pasa a `deleted: true`
+        con `body` nulo y sigue apareciendo para no romper la conversación.
+        Si no tiene respuestas, se borra definitivamente.
+      responses:
+        '204': { description: Eliminado }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────── RATINGS ─────────────
+  /places/{placeId}/rating:
+    parameters:
+      - { $ref: '#/components/parameters/PlaceId' }
+    put:
+      tags: [Ratings]
+      summary: Valorar un lugar (crea o reemplaza tu valoración)
+      description: Una valoración por usuario y lugar. Es idempotente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RatingRequest' }
+      responses:
+        '200':
+          description: Valoración registrada; devuelve los agregados actualizados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RatingSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Ratings]
+      summary: Retirar tu valoración
+      responses:
+        '200':
+          description: Valoración retirada; devuelve los agregados actualizados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RatingSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────── TAGS ─────────────
+  /tags:
+    get:
+      tags: [Tags]
+      summary: Catálogo de etiquetas
+      description: Lista cerrada gestionada por el backend (no las crean los usuarios).
+      security: []
+      responses:
+        '200':
+          description: Etiquetas disponibles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Tag' }
+
+  # ───────────── REPORTS ─────────────
+  /places/{placeId}/reports:
+    post:
+      tags: [Reports]
+      summary: Denunciar un lugar
+      description: Mecanismo de denuncia de contenido de usuario, exigido por las tiendas de aplicaciones.
+      parameters:
+        - { $ref: '#/components/parameters/PlaceId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReportRequest' }
+      responses:
+        '204': { description: Denuncia registrada }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /comments/{commentId}/reports:
+    post:
+      tags: [Reports]
+      summary: Denunciar un comentario
+      parameters:
+        - { $ref: '#/components/parameters/CommentId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReportRequest' }
+      responses:
+        '204': { description: Denuncia registrada }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # Seguridad por defecto: se exige token salvo donde se indica `security: []`
+  parameters:
+    PlaceId:
+      name: placeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PhotoId:
+      name: photoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Cursor opaco devuelto en `next_cursor`
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: Petición malformada
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Token ausente, inválido o caducado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Sin permiso sobre el recurso
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Conflicto con el estado actual (duplicado)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: Fichero demasiado grande
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ValidationError:
+      description: Datos inválidos
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ValidationProblem' }
+    TooManyRequests:
+      description: Límite de peticiones superado
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Segundos hasta poder reintentar
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    # ── Errores ──
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, example: 'https://dogspots.app/errors/not-found' }
+        title: { type: string, example: Recurso no encontrado }
+        status: { type: integer, example: 404 }
+        detail: { type: string }
+        code:
+          type: string
+          description: Código estable para que el cliente decida qué hacer
+          example: place_not_found
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string, example: lat }
+                  message: { type: string, example: debe estar entre -90 y 90 }
+
+    # ── Auth ──
+    RegisterRequest:
+      type: object
+      required: [email, password, display_name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 10, maxLength: 128 }
+        display_name: { type: string, minLength: 2, maxLength: 40 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_in:
+          type: integer
+          description: Segundos de vida del access token
+          example: 900
+    AuthResponse:
+      type: object
+      required: [user, tokens]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        tokens: { $ref: '#/components/schemas/TokenPair' }
+
+    # ── Users ──
+    User:
+      type: object
+      required: [id, email, display_name, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        display_name: { type: string }
+        avatar_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    PublicUser:
+      type: object
+      required: [id, display_name]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+        avatar_url: { type: string, nullable: true }
+        places_count: { type: integer }
+    UpdateUserRequest:
+      type: object
+      properties:
+        display_name: { type: string, minLength: 2, maxLength: 40 }
+
+    # ── Places ──
+    PlaceCategory:
+      type: string
+      enum: [park, beach, trail, dog_park, cafe, restaurant, other]
+    Tag:
+      type: object
+      required: [slug, label]
+      properties:
+        slug: { type: string, example: sin-correa }
+        label: { type: string, example: Zona sin correa }
+    Place:
+      type: object
+      required: [id, title, lat, lng, category, author, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        category: { $ref: '#/components/schemas/PlaceCategory' }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/Tag' }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/Photo' }
+        rating_avg: { type: number, nullable: true, example: 4.6 }
+        rating_count: { type: integer }
+        my_rating:
+          type: integer
+          nullable: true
+          description: Valoración del usuario autenticado (nulo si no ha valorado o no hay sesión)
+        comment_count: { type: integer }
+        distance_m:
+          type: integer
+          nullable: true
+          description: Solo presente en búsquedas por radio
+        author: { $ref: '#/components/schemas/PublicUser' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PlaceSummary:
+      description: Versión ligera para listados y marcadores del mapa
+      type: object
+      required: [id, title, lat, lng, category]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        category: { $ref: '#/components/schemas/PlaceCategory' }
+        cover_thumb_url: { type: string, nullable: true }
+        rating_avg: { type: number, nullable: true }
+        rating_count: { type: integer }
+        distance_m: { type: integer, nullable: true }
+    PlaceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PlaceSummary' }
+        next_cursor: { type: string, nullable: true }
+    CreatePlaceRequest:
+      type: object
+      required: [title, lat, lng, category]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 100 }
+        description: { type: string, maxLength: 2000 }
+        lat: { type: number, format: double, minimum: -90, maximum: 90 }
+        lng: { type: number, format: double, minimum: -180, maximum: 180 }
+        category: { $ref: '#/components/schemas/PlaceCategory' }
+        tags:
+          type: array
+          description: Slugs del catálogo
+          items: { type: string }
+          maxItems: 10
+    UpdatePlaceRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 3, maxLength: 100 }
+        description: { type: string, maxLength: 2000 }
+        lat: { type: number, format: double, minimum: -90, maximum: 90 }
+        lng: { type: number, format: double, minimum: -180, maximum: 180 }
+        category: { $ref: '#/components/schemas/PlaceCategory' }
+        tags:
+          type: array
+          items: { type: string }
+          maxItems: 10
+
+    # ── Photos ──
+    Photo:
+      type: object
+      required: [id, url, thumb_url]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, example: /media/photos/0190f3a2.webp }
+        thumb_url: { type: string, example: /media/thumbs/0190f3a2.webp }
+        caption: { type: string, nullable: true }
+        width: { type: integer }
+        height: { type: integer }
+        position: { type: integer }
+        uploaded_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+
+    # ── Comments ──
+    Comment:
+      type: object
+      required: [id, place_id, author, deleted, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        place_id: { type: string, format: uuid }
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Comentario raíz al que pertenece. Nulo si es de primer nivel.
+        reply_to:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/PublicUser'
+          nullable: true
+          description: Usuario al que se responde (para mostrar "@usuario"). Nulo si es de primer nivel.
+        body:
+          type: string
+          nullable: true
+          description: Nulo si el comentario fue eliminado pero conserva respuestas
+        author:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/PublicUser'
+          nullable: true
+          description: Nulo si el comentario fue eliminado
+        reply_count:
+          type: integer
+          description: Solo en comentarios de primer nivel
+        deleted: { type: boolean }
+        edited: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CommentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        next_cursor: { type: string, nullable: true }
+    CreateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 1000 }
+        reply_to_comment_id:
+          type: string
+          format: uuid
+          description: Si se informa, el comentario es una respuesta a este
+    UpdateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 1000 }
+
+    # ── Ratings ──
+    RatingRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+    RatingSummary:
+      type: object
+      required: [rating_avg, rating_count]
+      properties:
+        rating_avg: { type: number, nullable: true, example: 4.6 }
+        rating_count: { type: integer }
+        my_rating: { type: integer, nullable: true }
+
+    # ── Reports ──
+    CreateReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [spam, inappropriate, wrong_location, dangerous, other]
+        details: { type: string, maxLength: 500 }
+
+security:
+  - bearerAuth: []
