@@ -28,7 +28,7 @@ Verificación de email, recuperación de contraseña, favoritos, perfiles de per
 | Backend | Go, `net/http` (1.22+), `sqlc`, `goose`, `golang-jwt/jwt/v5` |
 | Base de datos | SQLite en modo WAL (driver `modernc.org/sqlite`) → Postgres + PostGIS |
 | Fotos | Volumen Docker → S3/R2 |
-| Despliegue | Docker Compose + Caddy (HTTPS automático) |
+| Despliegue | Docker Compose detrás de Nginx en un mini PC (dominio y certificado ya configurados) |
 | CI | GitHub Actions |
 
 El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre backend y app.
@@ -60,7 +60,7 @@ El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre bac
 - B-1.7 Conexión SQLite con WAL, `busy_timeout` y claves foráneas activadas; una única conexión de escritura.
 - B-1.8 Configurar `sqlc` y generar el primer paquete de consultas.
 - I-1.9 `Dockerfile` multi-etapa (binario estático, imagen mínima) y `docker-compose.yml` con volúmenes para la BD y las fotos.
-- I-1.10 Caddy como proxy inverso (en local sin HTTPS; en producción con dominio).
+- I-1.10 Documentar la conexión del Nginx del mini PC con la API en Docker Compose; el dominio y el certificado de producción ya están configurados.
 - I-1.11 Workflow de GitHub Actions: `go vet`, `go test`, build de la imagen.
 
 **Hito:** `docker compose up` levanta la API y `healthz` responde.
@@ -102,7 +102,7 @@ El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre bac
 - B-4.3 Eliminar metadatos EXIF (especialmente la geolocalización), reescalar la imagen y convertir a un formato eficiente.
 - B-4.4 Generar miniatura.
 - B-4.5 Guardar los ficheros con nombre aleatorio (UUID) tras una interfaz `Storage` con implementación en disco; así luego se cambia a S3/R2 sin tocar el resto.
-- B-4.6 Servir `/media/*` con cabeceras de caché largas (a través de Caddy si es posible).
+- B-4.6 Servir `/media/*` con cabeceras de caché largas; configurar Nginx para entregar esos recursos si corresponde.
 - B-4.7 `DELETE /places/{id}/photos/{photoId}` y limpieza de ficheros al borrar un lugar.
 - B-4.8 Tests: fichero no válido, demasiado grande, EXIF eliminado.
 
@@ -187,8 +187,8 @@ Puede empezar en paralelo a la Fase 2 una vez cerrado el contrato.
 
 ### Fase 12 — Despliegue (2–3 días)
 
-- I-12.1 Contratar un VPS pequeño (2 GB de RAM sobra para el prototipo) y configurar usuario no root, firewall y actualizaciones automáticas.
-- I-12.2 Dominio y DNS apuntando al VPS; Caddy con HTTPS automático.
+- I-12.1 Preparar el mini PC para ejecutar la API con Docker Compose, con usuario no root, firewall y actualizaciones automáticas.
+- I-12.2 Configurar el despliegue para integrarse con Nginx; el dominio, DNS y certificado de producción ya están configurados.
 - I-12.3 Variables de entorno y secretos fuera del repositorio (fichero `.env` en el servidor con permisos restringidos).
 - I-12.4 Despliegue con `docker compose pull && docker compose up -d`, idealmente automatizado desde GitHub Actions.
 - I-12.5 **Copias de seguridad:** volcado diario del fichero SQLite (con `sqlite3 .backup`, no copiando el fichero en caliente) y de las fotos a otro destino; probar una restauración.
@@ -227,7 +227,7 @@ Una tarea está terminada cuando:
 1. Fase 0 y Fase 1 primero, en orden.
 2. Si trabajas solo, avanza por **cortes verticales**: completa auth en backend y luego en la app, después lugares en ambos, y así sucesivamente. Así siempre tienes algo que probar de extremo a extremo.
 3. Si prefieres adelantar la app antes de que el backend esté listo, usa el contrato para generar respuestas simuladas (mock) y sustitúyelas después.
-4. Despliega en el VPS pronto (tras la Fase 3) y no esperes al final: detecta problemas de HTTPS, red y permisos cuando aún son baratos de arreglar.
+4. Despliega en el mini PC pronto (tras la Fase 3) y no esperes al final: detecta problemas de red y permisos cuando aún son baratos de arreglar.
 
 **Resumen de tiempos (orientativo):** backend 3–4 semanas, Android 4–5 semanas (en parte solapadas), despliegue, pruebas y publicación 3–4 semanas. En total, unos 2,5 a 3 meses para una persona con dedicación alta, más si es a tiempo parcial.
 
