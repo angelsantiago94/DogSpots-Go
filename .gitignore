@@ -30,6 +30,7 @@ go.work.sum
 
 # Go build output
 /dogspots-api/api
+/dogspots-api/main
 /dogspots-api/bin/
 
 # Go and Android build artifacts
