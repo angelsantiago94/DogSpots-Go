@@ -27,7 +27,7 @@
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": { "raw": "{{baseUrl}}/auth/login" }
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
           },
           "event": [{
             "listen": "test",
@@ -53,7 +53,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/tags" }
+            "url": { "raw": "{{baseUrl}}/tags", "host": ["{{baseUrl}}"], "path": ["tags"] }
           },
           "event": [{
             "listen": "test",
@@ -82,7 +82,7 @@
               "raw": "{\n  \"title\": \"Parque canino de prueba\",\n  \"description\": \"Zona amplia con agua y sombra.\",\n  \"lat\": 40.4168,\n  \"lng\": -3.7038,\n  \"category\": \"dog_park\",\n  \"tags\": [\"agua\", \"sombra\"]\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": { "raw": "{{baseUrl}}/places" }
+            "url": { "raw": "{{baseUrl}}/places", "host": ["{{baseUrl}}"], "path": ["places"] }
           },
           "event": [{
             "listen": "test",
@@ -102,7 +102,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places?limit=20&sort=recent" }
+            "url": { "raw": "{{baseUrl}}/places?limit=20&sort=recent", "host": ["{{baseUrl}}"], "path": ["places"], "query": [{ "key": "limit", "value": "20" }, { "key": "sort", "value": "recent" }] }
           },
           "event": [{
             "listen": "test",
@@ -120,7 +120,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places?min_lat=40.30&min_lng=-3.85&max_lat=40.55&max_lng=-3.55&limit=20" }
+            "url": { "raw": "{{baseUrl}}/places?min_lat=40.30&min_lng=-3.85&max_lat=40.55&max_lng=-3.55&limit=20", "host": ["{{baseUrl}}"], "path": ["places"], "query": [{ "key": "min_lat", "value": "40.30" }, { "key": "min_lng", "value": "-3.85" }, { "key": "max_lat", "value": "40.55" }, { "key": "max_lng", "value": "-3.55" }, { "key": "limit", "value": "20" }] }
           },
           "event": [{
             "listen": "test",
@@ -135,7 +135,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places?lat=40.4168&lng=-3.7038&radius_m=5000&sort=distance&limit=20" }
+            "url": { "raw": "{{baseUrl}}/places?lat=40.4168&lng=-3.7038&radius_m=5000&sort=distance&limit=20", "host": ["{{baseUrl}}"], "path": ["places"], "query": [{ "key": "lat", "value": "40.4168" }, { "key": "lng", "value": "-3.7038" }, { "key": "radius_m", "value": "5000" }, { "key": "sort", "value": "distance" }, { "key": "limit", "value": "20" }] }
           },
           "event": [{
             "listen": "test",
@@ -154,7 +154,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places?category=dog_park&tags=agua,sombra&min_rating=3&q=parque&sort=rating&limit=20" }
+            "url": { "raw": "{{baseUrl}}/places?category=dog_park&tags=agua,sombra&min_rating=3&q=parque&sort=rating&limit=20", "host": ["{{baseUrl}}"], "path": ["places"], "query": [{ "key": "category", "value": "dog_park" }, { "key": "tags", "value": "agua,sombra" }, { "key": "min_rating", "value": "3" }, { "key": "q", "value": "parque" }, { "key": "sort", "value": "rating" }, { "key": "limit", "value": "20" }] }
           },
           "event": [{
             "listen": "test",
@@ -170,7 +170,7 @@
             "method": "GET",
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
             "header": [],
-            "url": { "raw": "{{baseUrl}}/users/me/places?limit=20" }
+            "url": { "raw": "{{baseUrl}}/users/me/places?limit=20", "host": ["{{baseUrl}}"], "path": ["users", "me", "places"], "query": [{ "key": "limit", "value": "20" }] }
           },
           "event": [{
             "listen": "test",
@@ -188,7 +188,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places?limit=1&sort=recent" }
+            "url": { "raw": "{{baseUrl}}/places?limit=1&sort=recent", "host": ["{{baseUrl}}"], "path": ["places"], "query": [{ "key": "limit", "value": "1" }, { "key": "sort", "value": "recent" }] }
           },
           "event": [{
             "listen": "test",
@@ -207,7 +207,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places?limit=1&sort=recent&cursor={{next_cursor}}" }
+            "url": { "raw": "{{baseUrl}}/places?limit=1&sort=recent&cursor={{next_cursor}}", "host": ["{{baseUrl}}"], "path": ["places"], "query": [{ "key": "limit", "value": "1" }, { "key": "sort", "value": "recent" }, { "key": "cursor", "value": "{{next_cursor}}" }] }
           },
           "event": [{
             "listen": "test",
@@ -223,7 +223,7 @@
             "method": "GET",
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places/{{place_id}}" }
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}", "host": ["{{baseUrl}}"], "path": ["places", "{{place_id}}"] }
           },
           "event": [{
             "listen": "test",
@@ -248,7 +248,7 @@
               "raw": "{\n  \"title\": \"Parque canino actualizado\",\n  \"description\": \"Actualizado desde Postman\",\n  \"tags\": [\"agua\", \"sombra\", \"vallado\"]\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": { "raw": "{{baseUrl}}/places/{{place_id}}" }
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}", "host": ["{{baseUrl}}"], "path": ["places", "{{place_id}}"] }
           },
           "event": [{
             "listen": "test",
@@ -264,7 +264,7 @@
             "method": "DELETE",
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
             "header": [],
-            "url": { "raw": "{{baseUrl}}/places/{{place_id}}" }
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}", "host": ["{{baseUrl}}"], "path": ["places", "{{place_id}}"] }
           },
           "event": [{
             "listen": "test",

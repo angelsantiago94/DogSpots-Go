@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "DogSpots - Fase 4 - Fotos",
+    "description": "Flujo de prueba para subir, servir y borrar fotos. Ejecuta los requests en orden: login, crear lugar de prueba, subir foto, comprobar original/miniatura y borrar. En 'Subir foto', selecciona una imagen JPEG, PNG o WebP de hasta 5 MB desde el selector de archivo de Postman. El backend la normaliza a JPEG.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "mediaBaseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "email", "value": "user@example.com", "type": "string" },
+    { "key": "password", "value": "s3cur3passw0rd", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "place_id", "value": "", "type": "string" },
+    { "key": "photo_id", "value": "", "type": "string" },
+    { "key": "media_filename", "value": "", "type": "string" },
+    { "key": "thumbnail_filename", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Prerequisitos",
+      "item": [
+        {
+          "name": "Auth / Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Login correcto', function () { pm.response.to.have.status(200); });",
+                "const body = pm.response.json();",
+                "if (body.access_token) { pm.collectionVariables.set('access_token', body.access_token); if (pm.environment.name) pm.environment.set('access_token', body.access_token); }"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Crear lugar de prueba",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Lugar de prueba para fotos\",\n  \"description\": \"Creado desde Postman para probar la Fase 4.\",\n  \"lat\": 40.4168,\n  \"lng\": -3.7038,\n  \"category\": \"dog_park\",\n  \"tags\": [\"agua\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/places", "host": ["{{baseUrl}}"], "path": ["places"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Lugar creado', function () { pm.response.to.have.status(201); });",
+                "const body = pm.response.json();",
+                "pm.test('La respuesta incluye el identificador del lugar', function () { pm.expect(body.id).to.be.a('string'); });",
+                "if (body.id) pm.collectionVariables.set('place_id', body.id);"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Fotos",
+      "item": [
+        {
+          "name": "Subir foto",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" },
+                { "key": "caption", "value": "Foto de prueba DogSpots", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}/photos", "host": ["{{baseUrl}}"], "path": ["places", "{{place_id}}", "photos"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Foto creada', function () { pm.response.to.have.status(201); });",
+                "const body = pm.response.json();",
+                "pm.test('La respuesta incluye URLs y dimensiones', function () { pm.expect(body.id).to.be.a('string'); pm.expect(body.url).to.be.a('string'); pm.expect(body.thumb_url).to.be.a('string'); pm.expect(body.width).to.be.a('number'); pm.expect(body.height).to.be.a('number'); });",
+                "if (body.id) pm.collectionVariables.set('photo_id', body.id);",
+                "if (body.url) pm.collectionVariables.set('media_filename', body.url.split('/').pop());",
+                "if (body.thumb_url) pm.collectionVariables.set('thumbnail_filename', body.thumb_url.split('/').pop());"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Comprobar foto original",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mediaBaseUrl}}/media/{{media_filename}}", "host": ["{{mediaBaseUrl}}"], "path": ["media", "{{media_filename}}"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('El archivo original se sirve', function () { pm.response.to.have.status(200); });",
+                "pm.test('La respuesta incluye caché de larga duración', function () { pm.expect(pm.response.headers.get('Cache-Control')).to.include('max-age=31536000'); });"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Comprobar miniatura",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mediaBaseUrl}}/media/{{thumbnail_filename}}", "host": ["{{mediaBaseUrl}}"], "path": ["media", "{{thumbnail_filename}}"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('La miniatura se sirve', function () { pm.response.to.have.status(200); });"]
+            }
+          }]
+        },
+        {
+          "name": "Borrar foto",
+          "request": {
+            "method": "DELETE",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}/photos/{{photo_id}}", "host": ["{{baseUrl}}"], "path": ["places", "{{place_id}}", "photos", "{{photo_id}}"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Foto borrada', function () { pm.response.to.have.status(204); });",
+                "pm.collectionVariables.unset('photo_id');",
+                "pm.collectionVariables.unset('media_filename');",
+                "pm.collectionVariables.unset('thumbnail_filename');"
+              ]
+            }
+          }]
+        }
+      ]
+    }
+  ]
+}

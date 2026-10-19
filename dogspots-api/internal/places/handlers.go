@@ -1,6 +1,7 @@
 package places
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,10 +20,15 @@ import (
 type Handler struct {
 	repo         Repository
 	tokenManager *auth.TokenManager
+	photoCleanup func(context.Context, uuid.UUID) (func(context.Context) error, error)
 }
 
 func NewHandler(repo Repository, tokenManager *auth.TokenManager) *Handler {
 	return &Handler{repo: repo, tokenManager: tokenManager}
+}
+
+func (h *Handler) SetPhotoCleanup(cleanup func(context.Context, uuid.UUID) (func(context.Context) error, error)) {
+	h.photoCleanup = cleanup
 }
 
 func (h *Handler) ListTags(w http.ResponseWriter, r *http.Request) {
@@ -130,9 +136,32 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusBadRequest, "Bad Request", "Invalid place identifier", "invalid_place_id")
 		return
 	}
+	place, err := h.repo.Get(r.Context(), id, nil)
+	if err != nil {
+		writePlaceError(w, err)
+		return
+	}
+	if place.Author.ID != userID {
+		writePlaceError(w, ErrForbidden)
+		return
+	}
+	var cleanupFiles func(context.Context) error
+	if h.photoCleanup != nil {
+		cleanupFiles, err = h.photoCleanup(r.Context(), id)
+		if err != nil {
+			writeProblem(w, http.StatusInternalServerError, "Internal Server Error", "Failed to delete place photos", "photo_cleanup_error")
+			return
+		}
+	}
 	if err := h.repo.Delete(r.Context(), id, userID); err != nil {
 		writePlaceError(w, err)
 		return
+	}
+	if cleanupFiles != nil {
+		if err := cleanupFiles(r.Context()); err != nil {
+			writeProblem(w, http.StatusInternalServerError, "Internal Server Error", "Place was deleted but photo files could not be cleaned up", "photo_cleanup_error")
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

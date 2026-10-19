@@ -798,8 +798,8 @@ components:
       required: [id, url, thumb_url]
       properties:
         id: { type: string, format: uuid }
-        url: { type: string, example: /media/photos/0190f3a2.webp }
-        thumb_url: { type: string, example: /media/thumbs/0190f3a2.webp }
+        url: { type: string, example: /media/0190f3a2.jpg }
+        thumb_url: { type: string, example: /media/0190f3a2-thumb.jpg }
         caption: { type: string, nullable: true }
         width: { type: integer }
         height: { type: integer }
