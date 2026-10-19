@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -16,7 +17,9 @@ import (
 	"github.com/angellsan94/dogspots-api/internal/config"
 	apierrors "github.com/angellsan94/dogspots-api/internal/errors"
 	"github.com/angellsan94/dogspots-api/internal/middleware"
+	"github.com/angellsan94/dogspots-api/internal/photos"
 	"github.com/angellsan94/dogspots-api/internal/places"
+	"github.com/angellsan94/dogspots-api/internal/storage"
 	_ "modernc.org/sqlite"
 )
 
@@ -63,6 +66,14 @@ func main() {
 		os.Exit(1)
 	}
 	placesHandler := places.NewHandler(placesRepo, tokenManager)
+	photoRepo := photos.NewSQLiteRepository(db)
+	fileStorage, err := storage.NewLocalStorage(cfg.MediaDir)
+	if err != nil {
+		logger.Error("error al inicializar el almacenamiento de fotos", slog.Any("error", err))
+		os.Exit(1)
+	}
+	photosHandler := photos.NewHandler(photoRepo, placesRepo, fileStorage)
+	placesHandler.SetPhotoCleanup(photosHandler.PreparePlaceFilesCleanup)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/healthz", healthzHandler)
@@ -79,7 +90,19 @@ func main() {
 	mux.HandleFunc("GET /api/v1/places/{placeId}", placesHandler.Get)
 	mux.Handle("PATCH /api/v1/places/{placeId}", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.Update)))
 	mux.Handle("DELETE /api/v1/places/{placeId}", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.Delete)))
+	mux.Handle("POST /api/v1/places/{placeId}/photos", auth.RequireAuth(tokenManager, http.HandlerFunc(photosHandler.Upload)))
+	mux.Handle("DELETE /api/v1/places/{placeId}/photos/{photoId}", auth.RequireAuth(tokenManager, http.HandlerFunc(photosHandler.Delete)))
 	mux.Handle("GET /api/v1/users/me/places", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.ListMine)))
+	mux.HandleFunc("GET /media/{filename}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		filename := r.PathValue("filename")
+		if filepath.Base(filename) != filename || (filepath.Ext(filename) != ".jpg" && filepath.Ext(filename) != ".jpeg" && filepath.Ext(filename) != ".png") {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(cfg.MediaDir, filename))
+	})
 
 	var app http.Handler = mux
 	app = middleware.CORS(cfg.AllowedOrigins)(app)
