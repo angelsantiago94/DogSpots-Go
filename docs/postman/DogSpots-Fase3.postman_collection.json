@@ -1,0 +1,280 @@
+{
+  "info": {
+    "name": "DogSpots - Fase 3 - Lugares y etiquetas",
+    "description": "Requests para probar el catálogo de etiquetas, creación y gestión de lugares, búsquedas geográficas, filtros y paginación. Ejecuta primero 'Auth / Login' con un usuario ya registrado en Fase 2. La creación guarda place_id para detalle, edición y borrado. Los ejemplos geográficos usan Madrid; cambia las coordenadas por las de tu zona.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "email", "value": "user@example.com", "type": "string" },
+    { "key": "password", "value": "s3cur3passw0rd", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "user_id", "value": "", "type": "string" },
+    { "key": "place_id", "value": "", "type": "string" },
+    { "key": "next_cursor", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Prerequisitos",
+      "item": [
+        {
+          "name": "Auth / Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Login correcto', function () { pm.response.to.have.status(200); });",
+                "const body = pm.response.json();",
+                "if (body.access_token) { pm.collectionVariables.set('access_token', body.access_token); if (pm.environment.name) pm.environment.set('access_token', body.access_token); }",
+                "if (body.user_id) { pm.collectionVariables.set('user_id', body.user_id); if (pm.environment.name) pm.environment.set('user_id', body.user_id); }",
+                "if (body.user && body.user.id) { pm.collectionVariables.set('user_id', body.user.id); if (pm.environment.name) pm.environment.set('user_id', body.user.id); }"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Etiquetas",
+      "item": [
+        {
+          "name": "Listar catálogo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tags" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Catálogo disponible', function () { pm.response.to.have.status(200); });",
+                "pm.test('La respuesta contiene items', function () { pm.expect(pm.response.json().items).to.be.an('array'); });"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Lugares",
+      "item": [
+        {
+          "name": "Crear lugar",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Parque canino de prueba\",\n  \"description\": \"Zona amplia con agua y sombra.\",\n  \"lat\": 40.4168,\n  \"lng\": -3.7038,\n  \"category\": \"dog_park\",\n  \"tags\": [\"agua\", \"sombra\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/places" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Lugar creado', function () { pm.response.to.have.status(201); });",
+                "const body = pm.response.json();",
+                "if (body.id) pm.collectionVariables.set('place_id', body.id);",
+                "pm.test('Se guardó place_id', function () { pm.expect(body.id).to.be.a('string'); });"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Buscar recientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places?limit=20&sort=recent" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Búsqueda correcta', function () { pm.response.to.have.status(200); });",
+                "pm.test('La respuesta contiene items', function () { pm.expect(pm.response.json().items).to.be.an('array'); });"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Buscar por bounding box",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places?min_lat=40.30&min_lng=-3.85&max_lat=40.55&max_lng=-3.55&limit=20" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('Búsqueda bbox correcta', function () { pm.response.to.have.status(200); });"]
+            }
+          }]
+        },
+        {
+          "name": "Buscar por radio y distancia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places?lat=40.4168&lng=-3.7038&radius_m=5000&sort=distance&limit=20" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Búsqueda por radio correcta', function () { pm.response.to.have.status(200); });",
+                "const items = pm.response.json().items;",
+                "pm.test('La distancia aparece en los resultados', function () { if (items.length) pm.expect(items[0]).to.have.property('distance_m'); });"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Filtrar categoría, etiquetas, texto y rating",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places?category=dog_park&tags=agua,sombra&min_rating=3&q=parque&sort=rating&limit=20" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('Filtros combinados correctos', function () { pm.response.to.have.status(200); });"]
+            }
+          }]
+        },
+        {
+          "name": "Listar mis lugares",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/users/me/places?limit=20" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Mis lugares disponible', function () { pm.response.to.have.status(200); });",
+                "pm.test('La respuesta contiene items', function () { pm.expect(pm.response.json().items).to.be.an('array'); });"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Primera página (guardar cursor)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places?limit=1&sort=recent" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Primera página correcta', function () { pm.response.to.have.status(200); });",
+                "const body = pm.response.json();",
+                "pm.collectionVariables.set('next_cursor', body.next_cursor || '');"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Siguiente página (usar cursor guardado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places?limit=1&sort=recent&cursor={{next_cursor}}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('Siguiente página correcta', function () { pm.response.to.have.status(200); });"]
+            }
+          }]
+        },
+        {
+          "name": "Detalle de lugar",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Detalle disponible', function () { pm.response.to.have.status(200); });",
+                "const body = pm.response.json();",
+                "pm.test('Incluye autor, etiquetas y fotos', function () { pm.expect(body).to.have.property('author'); pm.expect(body.tags).to.be.an('array'); pm.expect(body.photos).to.be.an('array'); });"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Editar lugar propio",
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Parque canino actualizado\",\n  \"description\": \"Actualizado desde Postman\",\n  \"tags\": [\"agua\", \"sombra\", \"vallado\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('Lugar actualizado', function () { pm.response.to.have.status(200); });"]
+            }
+          }]
+        },
+        {
+          "name": "Eliminar lugar propio (destructivo)",
+          "request": {
+            "method": "DELETE",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }] },
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/places/{{place_id}}" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": ["pm.test('Lugar eliminado', function () { pm.response.to.have.status(204); });"]
+            }
+          }]
+        }
+      ]
+    }
+  ]
+}

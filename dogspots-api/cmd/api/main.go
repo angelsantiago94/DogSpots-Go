@@ -16,6 +16,7 @@ import (
 	"github.com/angellsan94/dogspots-api/internal/config"
 	apierrors "github.com/angellsan94/dogspots-api/internal/errors"
 	"github.com/angellsan94/dogspots-api/internal/middleware"
+	"github.com/angellsan94/dogspots-api/internal/places"
 	_ "modernc.org/sqlite"
 )
 
@@ -56,6 +57,12 @@ func main() {
 	tokenManager := auth.NewTokenManager(cfg.JWTSecret, 15*time.Minute)
 	authService := auth.NewAuthService(repo, auth.NewArgon2Hasher(), tokenManager, 15*time.Minute, 7*24*time.Hour)
 	handler := auth.NewHandler(authService, repo)
+	placesRepo, err := places.NewSQLiteRepository(db)
+	if err != nil {
+		logger.Error("error al inicializar el repositorio de lugares", slog.Any("error", err))
+		os.Exit(1)
+	}
+	placesHandler := places.NewHandler(placesRepo, tokenManager)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/healthz", healthzHandler)
@@ -66,6 +73,13 @@ func main() {
 	mux.Handle("GET /api/v1/users/me", auth.RequireAuth(tokenManager, http.HandlerFunc(handler.GetMe)))
 	mux.Handle("PATCH /api/v1/users/me", auth.RequireAuth(tokenManager, http.HandlerFunc(handler.UpdateMe)))
 	mux.HandleFunc("GET /api/v1/users/{userId}", handler.GetUserByID)
+	mux.HandleFunc("GET /api/v1/tags", placesHandler.ListTags)
+	mux.HandleFunc("GET /api/v1/places", placesHandler.List)
+	mux.Handle("POST /api/v1/places", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.Create)))
+	mux.HandleFunc("GET /api/v1/places/{placeId}", placesHandler.Get)
+	mux.Handle("PATCH /api/v1/places/{placeId}", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.Update)))
+	mux.Handle("DELETE /api/v1/places/{placeId}", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.Delete)))
+	mux.Handle("GET /api/v1/users/me/places", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.ListMine)))
 
 	var app http.Handler = mux
 	app = middleware.CORS(cfg.AllowedOrigins)(app)
