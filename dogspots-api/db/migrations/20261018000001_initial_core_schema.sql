@@ -89,3 +89,12 @@ CREATE TABLE IF NOT EXISTS reports (
 
 -- +goose StatementEnd
 -- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS reports;
+DROP TABLE IF EXISTS ratings;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS photos;
+DROP TABLE IF EXISTS place_tags;
+DROP TABLE IF EXISTS places;
+DROP TABLE IF EXISTS tags;
+-- +goose StatementEnd

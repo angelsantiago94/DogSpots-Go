@@ -9,16 +9,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
+	dbmigrations "github.com/angellsan94/dogspots-api/db/migrations"
 	"github.com/angellsan94/dogspots-api/internal/auth"
+	"github.com/angellsan94/dogspots-api/internal/comments"
 	"github.com/angellsan94/dogspots-api/internal/config"
 	apierrors "github.com/angellsan94/dogspots-api/internal/errors"
 	"github.com/angellsan94/dogspots-api/internal/middleware"
 	"github.com/angellsan94/dogspots-api/internal/photos"
 	"github.com/angellsan94/dogspots-api/internal/places"
+	"github.com/angellsan94/dogspots-api/internal/ratings"
 	"github.com/angellsan94/dogspots-api/internal/storage"
 	_ "modernc.org/sqlite"
 )
@@ -50,6 +52,16 @@ func main() {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
+	if err := dbmigrations.Up(context.Background(), db); err != nil {
+		logger.Error("error al ejecutar migraciones", slog.Any("error", err))
+		os.Exit(1)
+	}
+	if cfg.AppEnv == "development" {
+		if err := places.SeedDevelopmentData(context.Background(), db); err != nil {
+			logger.Error("error al cargar datos de desarrollo", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}
 
 	repo, err := auth.NewSQLiteRepository(db)
 	if err != nil {
@@ -58,7 +70,7 @@ func main() {
 	}
 
 	tokenManager := auth.NewTokenManager(cfg.JWTSecret, 15*time.Minute)
-	authService := auth.NewAuthService(repo, auth.NewArgon2Hasher(), tokenManager, 15*time.Minute, 7*24*time.Hour)
+	authService := auth.NewAuthService(repo, auth.NewArgon2HasherWithParams(cfg.Argon2Params), tokenManager, 15*time.Minute, 7*24*time.Hour)
 	handler := auth.NewHandler(authService, repo)
 	placesRepo, err := places.NewSQLiteRepository(db)
 	if err != nil {
@@ -74,6 +86,11 @@ func main() {
 	}
 	photosHandler := photos.NewHandler(photoRepo, placesRepo, fileStorage)
 	placesHandler.SetPhotoCleanup(photosHandler.PreparePlaceFilesCleanup)
+	commentsRepo := comments.NewSQLiteRepository(db)
+	commentsHandler := comments.NewHandler(commentsRepo)
+	commentCreateRateLimit := middleware.NewRateLimiter(5, time.Minute)
+	ratingsRepo := ratings.NewSQLiteRepository(db)
+	ratingsHandler := ratings.NewHandler(ratingsRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/healthz", healthzHandler)
@@ -92,19 +109,18 @@ func main() {
 	mux.Handle("DELETE /api/v1/places/{placeId}", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.Delete)))
 	mux.Handle("POST /api/v1/places/{placeId}/photos", auth.RequireAuth(tokenManager, http.HandlerFunc(photosHandler.Upload)))
 	mux.Handle("DELETE /api/v1/places/{placeId}/photos/{photoId}", auth.RequireAuth(tokenManager, http.HandlerFunc(photosHandler.Delete)))
+	mux.Handle("POST /api/v1/places/{placeId}/comments", auth.RequireAuth(tokenManager, commentCreateRateLimit(http.HandlerFunc(commentsHandler.Create))))
+	mux.HandleFunc("GET /api/v1/places/{placeId}/comments", commentsHandler.List)
+	mux.HandleFunc("GET /api/v1/comments/{commentId}/replies", commentsHandler.Replies)
+	mux.Handle("PATCH /api/v1/comments/{commentId}", auth.RequireAuth(tokenManager, http.HandlerFunc(commentsHandler.Update)))
+	mux.Handle("DELETE /api/v1/comments/{commentId}", auth.RequireAuth(tokenManager, http.HandlerFunc(commentsHandler.Delete)))
+	mux.Handle("PUT /api/v1/places/{placeId}/rating", auth.RequireAuth(tokenManager, http.HandlerFunc(ratingsHandler.Put)))
+	mux.Handle("DELETE /api/v1/places/{placeId}/rating", auth.RequireAuth(tokenManager, http.HandlerFunc(ratingsHandler.Delete)))
 	mux.Handle("GET /api/v1/users/me/places", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.ListMine)))
-	mux.HandleFunc("GET /media/{filename}", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		filename := r.PathValue("filename")
-		if filepath.Base(filename) != filename || (filepath.Ext(filename) != ".jpg" && filepath.Ext(filename) != ".jpeg" && filepath.Ext(filename) != ".png") {
-			http.NotFound(w, r)
-			return
-		}
-		http.ServeFile(w, r, filepath.Join(cfg.MediaDir, filename))
-	})
+	mux.Handle("GET /media/{filename}", storage.MediaHandler(cfg.MediaDir))
 
 	var app http.Handler = mux
+	app = middleware.MaxBodySize(middleware.DefaultMaxBodySize)(app)
 	app = middleware.CORS(cfg.AllowedOrigins)(app)
 	app = middleware.Logger(logger)(app)
 	app = middleware.Recovery(logger)(app)

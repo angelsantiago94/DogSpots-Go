@@ -39,83 +39,84 @@ El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre bac
 - Prefijos: **B** = backend, **A** = Android, **I** = infraestructura, **P** = producto/publicación.
 - Las estimaciones son orientativas, para una persona con dedicación sustancial. Úsalas para ordenar, no como compromiso.
 - Cada tarea se considera terminada cuando cumple la *definición de hecho* de la sección 5.
+- Revisión del 20-10-2026: `[x]` indica tarea completada y verificada; las tareas sin marcar siguen pendientes o no tienen evidencia suficiente.
 
 ## 4. Plan por fases
 
 ### Fase 0 — Preparación (1–2 días)
 
-- P-0.1 Crear el repositorio monorepo con la estructura `android/`, `dogspots-api/`, `docs/`, `docker-compose.yml`.
-- P-0.2 Añadir `openapi.yaml` a `docs/` y validarlo con una herramienta (Swagger Editor o `redocly lint`).
-- P-0.3 Definir convenciones: ramas (`main` + ramas de feature), mensajes de commit, plantilla de pull request.
+- [x] P-0.1 Crear el repositorio monorepo con la estructura `android/`, `dogspots-api/`, `docs/`, `docker-compose.yml`.
+- [x] P-0.2 Añadir `openapi.yaml` a `docs/` y validarlo con una herramienta (Swagger Editor o `redocly lint`).
+- [x] P-0.3 Definir convenciones: ramas (`main` + ramas de feature), mensajes de commit, plantilla de pull request.
 - P-0.4 Instalar herramientas: Go 1.22+, Docker, Android Studio, `sqlc`, `goose`.
 
 ### Fase 1 — Esqueleto del backend (3–4 días)
 
-- B-1.1 Inicializar el módulo Go y la estructura `cmd/api`, `internal/{auth,places,photos,comments,ratings,users}`, `db/`.
+- [x] B-1.1 Inicializar el módulo Go y la estructura `cmd/api`, `internal/{auth,places,photos,comments,ratings,users}`, `db/`.
 - B-1.2 Configuración por variables de entorno (puerto, ruta de la BD, secreto JWT, directorio de fotos, orígenes permitidos) con validación al arrancar.
-- B-1.3 Servidor con `net/http`, apagado ordenado (graceful shutdown) y endpoint `GET /api/v1/healthz`.
-- B-1.4 Middlewares: identificador de petición, logging estructurado (`log/slog`), recuperación de pánicos, límite de tamaño de cuerpo, CORS si procede.
-- B-1.5 Formato de errores RFC 7807 con helper común y códigos estables (`code`).
-- B-1.6 Esquema inicial con migraciones `goose`: `users`, `refresh_tokens`, `places`, `tags`, `place_tags`, `photos`, `comments`, `ratings`, `reports`. IDs UUID generados en la aplicación; fechas en UTC.
-- B-1.7 Conexión SQLite con WAL, `busy_timeout` y claves foráneas activadas; una única conexión de escritura.
-- B-1.8 Configurar `sqlc` y generar el primer paquete de consultas.
-- I-1.9 `Dockerfile` multi-etapa (binario estático, imagen mínima) y `docker-compose.yml` con volúmenes para la BD y las fotos.
+- [x] B-1.3 Servidor con `net/http`, apagado ordenado (graceful shutdown) y endpoint `GET /api/v1/healthz`.
+- [x] B-1.4 Middlewares: identificador de petición, logging estructurado (`log/slog`), recuperación de pánicos, límite de tamaño de cuerpo, CORS si procede.
+- [x] B-1.5 Formato de errores RFC 7807 con helper común y códigos estables (`code`).
+- [x] B-1.6 Esquema inicial con migraciones `goose`: `users`, `refresh_tokens`, `places`, `tags`, `place_tags`, `photos`, `comments`, `ratings`, `reports`. IDs UUID generados en la aplicación; fechas en UTC.
+- [x] B-1.7 Conexión SQLite con WAL, `busy_timeout` y claves foráneas activadas; una única conexión de escritura.
+- [x] B-1.8 Configurar `sqlc` y generar el primer paquete de consultas.
+- [x] I-1.9 `Dockerfile` multi-etapa (binario estático, imagen mínima) y `docker-compose.yml` con volúmenes para la BD y las fotos.
 - I-1.10 Documentar la conexión del Nginx del mini PC con la API en Docker Compose; el dominio y el certificado de producción ya están configurados.
-- I-1.11 Workflow de GitHub Actions: `go vet`, `go test`, build de la imagen.
+- [x] I-1.11 Workflow de GitHub Actions: `go vet`, `go test`, build de la imagen.
 
 **Hito:** `docker compose up` levanta la API y `healthz` responde.
 
 ### Fase 2 — Autenticación (4–5 días)
 
-- B-2.1 Hash de contraseñas con argon2id (parámetros configurables).
-- B-2.2 `POST /auth/register` con validación (email, contraseña mínima de 10 caracteres, nombre).
-- B-2.3 Emisión de access token (15 min) con `golang-jwt` y firma HS256.
-- B-2.4 Refresh tokens: generar aleatorio, guardar solo su hash, asociarlo a una familia de sesión.
-- B-2.5 `POST /auth/login` y `POST /auth/refresh` con rotación; si se reutiliza un token ya rotado, revocar toda la familia.
-- B-2.6 `POST /auth/logout`.
-- B-2.7 Middleware de autenticación que inyecta el usuario en el contexto; variante opcional para endpoints públicos que mejoran con sesión (por ejemplo `my_rating`).
+- [x] B-2.1 Hash de contraseñas con argon2id; parámetros configurables con `ARGON2_MEMORY_KIB` (65536), `ARGON2_ITERATIONS` (3) y `ARGON2_PARALLELISM` (2).
+- [x] B-2.2 `POST /auth/register` con validación (email, contraseña mínima de 10 caracteres, nombre).
+- [x] B-2.3 Emisión de access token (15 min) con `golang-jwt` y firma HS256.
+- [x] B-2.4 Refresh tokens: generar aleatorio, guardar solo su hash, asociarlo a una familia de sesión.
+- [x] B-2.5 `POST /auth/login` y `POST /auth/refresh` con rotación; si se reutiliza un token ya rotado, revocar toda la familia.
+- [x] B-2.6 `POST /auth/logout`.
+- [x] B-2.7 Middleware de autenticación que inyecta el usuario en el contexto; variante opcional para endpoints públicos que mejoran con sesión (por ejemplo `my_rating`).
 - B-2.8 Rate limiting en login y registro (por IP y por email).
-- B-2.9 `GET/PATCH /users/me` y `GET /users/{id}`.
+- [x] B-2.9 `GET/PATCH /users/me` y `GET /users/{id}`.
 - B-2.10 Tests: registro duplicado, credenciales erróneas, token caducado, rotación y reutilización de refresh token.
 
 **Hito:** flujo completo de registro, login, renovación y logout probado con tests.
 
 ### Fase 3 — Lugares y etiquetas (5–6 días)
 
-- B-3.1 Sembrar el catálogo de etiquetas por migración (zona sin correa, agua, sombra, vallado, bolsas, terraza que admite perros, etc.).
-- B-3.2 `GET /tags`.
-- B-3.3 `POST /places` con validación de coordenadas, categoría y etiquetas del catálogo.
-- B-3.4 `GET /places/{id}` con autor, etiquetas, fotos y agregados.
-- B-3.5 `PATCH` y `DELETE /places/{id}` con comprobación de autoría (403 si no es el autor).
-- B-3.6 `GET /places` por bounding box, con índice sobre latitud/longitud.
-- B-3.7 `GET /places` por radio (bounding box previo + cálculo de distancia con Haversine) y `sort=distance`.
-- B-3.8 Filtros: categoría, etiquetas (todas), texto, `min_rating`; paginación por cursor.
-- B-3.9 `GET /users/me/places`.
-- B-3.10 Tests de integración con SQLite en memoria. Datos de prueba (seed) para desarrollo, con lugares reales de tu ciudad.
+- [x] B-3.1 Sembrar el catálogo de etiquetas por migración (zona sin correa, agua, sombra, vallado, bolsas, terraza que admite perros, etc.).
+- [x] B-3.2 `GET /tags`.
+- [x] B-3.3 `POST /places` con validación de coordenadas, categoría y etiquetas del catálogo.
+- [x] B-3.4 `GET /places/{id}` con autor, etiquetas, fotos y agregados.
+- [x] B-3.5 `PATCH` y `DELETE /places/{id}` con comprobación de autoría (403 si no es el autor).
+- [x] B-3.6 `GET /places` por bounding box, con índice sobre latitud/longitud.
+- [x] B-3.7 `GET /places` por radio (bounding box previo + cálculo de distancia con Haversine) y `sort=distance`.
+- [x] B-3.8 Filtros: categoría, etiquetas (todas), texto, `min_rating`; paginación por cursor.
+- [x] B-3.9 `GET /users/me/places`.
+- [x] B-3.10 Tests de integración con SQLite en memoria y seed de desarrollo idempotente con parques reales de Madrid (datos y coordenadas de OpenStreetMap).
 
 **Hito:** puedes crear y consultar lugares con `curl` o Bruno.
 
 ### Fase 4 — Fotos (3–4 días)
 
-- B-4.1 `POST /places/{id}/photos` multipart con límite de 5 MB y máximo de 8 fotos por lugar.
-- B-4.2 Validar el tipo real del fichero (detección por contenido, no por extensión): JPEG, PNG, WebP.
-- B-4.3 Eliminar metadatos EXIF (especialmente la geolocalización), reescalar la imagen y convertir a un formato eficiente.
-- B-4.4 Generar miniatura.
-- B-4.5 Guardar los ficheros con nombre aleatorio (UUID) tras una interfaz `Storage` con implementación en disco; así luego se cambia a S3/R2 sin tocar el resto.
-- B-4.6 Servir `/media/*` con cabeceras de caché largas; configurar Nginx para entregar esos recursos si corresponde.
-- B-4.7 `DELETE /places/{id}/photos/{photoId}` y limpieza de ficheros al borrar un lugar.
-- B-4.8 Tests: fichero no válido, demasiado grande, EXIF eliminado.
+- [x] B-4.1 `POST /places/{id}/photos` multipart con límite de 5 MB y máximo de 8 fotos por lugar.
+- [x] B-4.2 Validar el tipo real del fichero (detección por contenido, no por extensión): JPEG, PNG, WebP.
+- [x] B-4.3 Eliminar metadatos EXIF (especialmente la geolocalización), reescalar la imagen y convertir a un formato eficiente.
+- [x] B-4.4 Generar miniatura.
+- [x] B-4.5 Guardar los ficheros con nombre aleatorio (UUID) tras una interfaz `Storage` con implementación en disco; así luego se cambia a S3/R2 sin tocar el resto.
+- [x] B-4.6 Servir `/media/*` con caché de un año y `immutable`; documentar el proxy de Nginx del host hacia la API.
+- [x] B-4.7 `DELETE /places/{id}/photos/{photoId}` y limpieza de ficheros al borrar un lugar.
+- [x] B-4.8 Tests: fichero no válido, demasiado grande, EXIF eliminado.
 
 ### Fase 5 — Comentarios y valoraciones (4–5 días)
 
-- B-5.1 `POST /places/{id}/comments` con `reply_to_comment_id` opcional y normalización a un nivel (`parent_id` = raíz, `reply_to` = autor del comentario contestado).
-- B-5.2 `GET /places/{id}/comments` (primer nivel, con `reply_count`) y `GET /comments/{id}/replies`.
-- B-5.3 `PATCH /comments/{id}` y marca `edited`.
-- B-5.4 `DELETE /comments/{id}` con borrado lógico si tiene respuestas y borrado real si no.
-- B-5.5 `PUT` y `DELETE /places/{id}/rating` con `rating_avg` y `rating_count` actualizados de forma consistente (recalcular en la misma transacción o columnas desnormalizadas).
-- B-5.6 Incluir `comment_count` y `my_rating` en el detalle del lugar.
-- B-5.7 Rate limiting en creación de comentarios para frenar spam.
-- B-5.8 Tests: responder a una respuesta, borrar un comentario con respuestas, valorar dos veces (idempotencia).
+- [x] B-5.1 `POST /places/{id}/comments` con `reply_to_comment_id` opcional y normalización a un nivel (`parent_id` = raíz, `reply_to` = autor del comentario contestado).
+- [x] B-5.2 `GET /places/{id}/comments` (primer nivel, con `reply_count`) y `GET /comments/{id}/replies`.
+- [x] B-5.3 `PATCH /comments/{id}` y marca `edited`.
+- [x] B-5.4 `DELETE /comments/{id}` con borrado lógico si tiene respuestas y borrado real si no.
+- [x] B-5.5 `PUT` y `DELETE /places/{id}/rating` con `rating_avg` y `rating_count` actualizados de forma consistente (recalcular en la misma transacción o columnas desnormalizadas).
+- [x] B-5.6 Incluir `comment_count` y `my_rating` en el detalle del lugar.
+- [x] B-5.7 Rate limiting en creación de comentarios para frenar spam.
+- [x] B-5.8 Tests: responder a una respuesta, borrar un comentario con respuestas, valorar dos veces (idempotencia).
 
 ### Fase 6 — Denuncias y cuenta (2–3 días)
 

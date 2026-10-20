@@ -3,52 +3,17 @@ package auth
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-const authSchema = `
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
-PRAGMA busy_timeout = 5000;
-
-CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS refresh_tokens (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    token_hash TEXT NOT NULL,
-    family_id TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    is_revoked INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family_id ON refresh_tokens(family_id);
-`
 
 type SQLiteRepository struct {
 	db *sql.DB
 }
 
 func NewSQLiteRepository(db *sql.DB) (*SQLiteRepository, error) {
-	repo := &SQLiteRepository{db: db}
-	if _, err := db.Exec(authSchema); err != nil {
-		return nil, fmt.Errorf("initializing auth schema: %w", err)
-	}
-	return repo, nil
+	return &SQLiteRepository{db: db}, nil
 }
 
 func (r *SQLiteRepository) CreateUser(ctx context.Context, user UserCreateParams) (User, error) {

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/angellsan94/dogspots-api/db/migrations"
 	"github.com/angellsan94/dogspots-api/internal/auth"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -23,7 +24,7 @@ func newTestRepository(t *testing.T) (*sql.DB, *SQLiteRepository, uuid.UUID) {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := auth.NewSQLiteRepository(db); err != nil {
+	if err := migrations.Up(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
 	userID := uuid.New()
@@ -72,6 +73,32 @@ func TestCreateDetailAndOwnership(t *testing.T) {
 	var remaining int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM places`).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("unexpected remaining places: %d, %v", remaining, err)
+	}
+}
+
+func TestDevelopmentSeedIsIdempotent(t *testing.T) {
+	db, repo, _ := newTestRepository(t)
+	ctx := context.Background()
+	for range 2 {
+		if err := SeedDevelopmentData(ctx, db); err != nil {
+			t.Fatalf("SeedDevelopmentData() error = %v", err)
+		}
+	}
+	places, err := repo.List(ctx, ListOptions{Sort: "recent", Limit: 100})
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(places.Items) != len(developmentPlaces) {
+		t.Fatalf("seeded %d places, want %d", len(places.Items), len(developmentPlaces))
+	}
+	for _, seeded := range developmentPlaces {
+		place, err := repo.Get(ctx, uuid.MustParse(seeded.id), nil)
+		if err != nil {
+			t.Fatalf("Get(%q) error = %v", seeded.title, err)
+		}
+		if place.Title != seeded.title || place.Author.DisplayName != "DogSpots Demo" {
+			t.Errorf("unexpected seeded place: %#v", place)
+		}
 	}
 }
 

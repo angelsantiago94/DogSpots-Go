@@ -6,7 +6,11 @@ INSERT INTO places (id, author_id, title, description, lat, lng, category)
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetPlace :one
-SELECT id, author_id, title, description, lat, lng, category, created_at, updated_at FROM places
+SELECT 
+    id, author_id, title, description, lat, lng, category, 
+    comment_count, rating_avg, rating_count,
+    created_at, updated_at 
+FROM places
 WHERE id = ?;
 
 -- name: GetPlaceAuthor :one
@@ -29,13 +33,21 @@ WHERE id = ?;
 DELETE FROM places WHERE id = ?;
 
 -- name: ListPlacesByBoundingBox :many
-SELECT id, author_id, title, description, lat, lng, category, created_at, updated_at FROM places
+SELECT 
+    id, author_id, title, description, lat, lng, category, 
+    comment_count, rating_avg, rating_count,
+    created_at, updated_at 
+FROM places
 WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
 ORDER BY created_at DESC
 LIMIT ?;
 
 -- name: ListUserPlaces :many
-SELECT id, author_id, title, description, lat, lng, category, created_at, updated_at FROM places
+SELECT 
+    id, author_id, title, description, lat, lng, category, 
+    comment_count, rating_avg, rating_count,
+    created_at, updated_at 
+FROM places
 WHERE author_id = ?
 ORDER BY created_at DESC
 LIMIT ?;
@@ -50,3 +62,8 @@ WHERE pt.place_id = ?;
 SELECT id, place_id, url, thumb_url, caption, width, height, position, uploaded_by, created_at
 FROM photos
 WHERE place_id = ?;
+
+-- name: UpdatePlaceStats :exec
+UPDATE places
+SET comment_count = ?, rating_avg = ?, rating_count = ?
+WHERE id = ?;

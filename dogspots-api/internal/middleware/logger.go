@@ -17,10 +17,11 @@ func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := uuid.New().String()
-			
+			w.Header().Set("X-Request-ID", requestID)
+
 			// Añadir request ID al contexto para que otros componentes lo usen
 			ctx := context.WithValue(r.Context(), RequestIDKey, requestID)
-			
+
 			// Registrar la petición entrante
 			logger.Info("incoming request",
 				slog.String("request_id", requestID),
@@ -31,7 +32,7 @@ func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			// Usar un wrapper para poder capturar el status code en el log de salida
 			rw := &responseWriterWrapper{ResponseWriter: w, statusCode: http.StatusOK}
-			
+
 			next.ServeHTTP(rw, r.WithContext(ctx))
 
 			// Loguear la finalización de la petición

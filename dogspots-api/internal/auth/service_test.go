@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +23,20 @@ func newFakeUserRepository() *fakeUserRepository {
 		byID:          make(map[uuid.UUID]User),
 		refreshByID:   make(map[uuid.UUID]RefreshToken),
 		refreshByHash: make(map[string]RefreshToken),
+	}
+}
+
+func TestArgon2HasherUsesConfiguredParameters(t *testing.T) {
+	hasher := NewArgon2HasherWithParams(Argon2Params{Memory: 8 * 1024, Iterations: 1, Parallelism: 1})
+	hash, err := hasher.HashPassword("a-secure-password")
+	if err != nil {
+		t.Fatalf("HashPassword() error = %v", err)
+	}
+	if !strings.Contains(hash, "$m=8192,t=1,p=1$") {
+		t.Fatalf("hash does not contain configured Argon2 parameters: %q", hash)
+	}
+	if err := hasher.VerifyPassword("a-secure-password", hash); err != nil {
+		t.Fatalf("VerifyPassword() error = %v", err)
 	}
 }
 

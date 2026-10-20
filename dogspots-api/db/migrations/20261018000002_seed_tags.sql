@@ -2,7 +2,7 @@
 
 -- +goose StatementBegin
 
-INSERT INTO tags (id, slug, name, created_at) VALUES
+INSERT OR IGNORE INTO tags (id, slug, name, created_at) VALUES
 ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'sin-correa', 'Zona sin correa', CURRENT_TIMESTAMP),
 ('b2c3d4e5-f6a7-8901-bcde-f234567890ab', 'agua', 'Agua', CURRENT_TIMESTAMP),
 ('c3d4e5f6-a7b8-9012-cdef-34567890abcd', 'sombra', 'Sombra', CURRENT_TIMESTAMP),
@@ -16,3 +16,4 @@ INSERT INTO tags (id, slug, name, created_at) VALUES
 DELETE FROM tags
 WHERE slug IN ('sin-correa', 'agua', 'sombra', 'vallado', 'bolsas', 'terraza-perros');
 -- +goose StatementEnd
+
