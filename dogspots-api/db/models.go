@@ -9,16 +9,17 @@ import (
 )
 
 type Comment struct {
-	ID        interface{}
-	PlaceID   interface{}
-	ParentID  interface{}
-	ReplyTo   interface{}
-	AuthorID  interface{}
-	Body      sql.NullString
-	Deleted   bool
-	Edited    bool
-	CreatedAt interface{}
-	UpdatedAt interface{}
+	ID         interface{}
+	PlaceID    interface{}
+	ParentID   interface{}
+	ReplyTo    interface{}
+	AuthorID   interface{}
+	Body       sql.NullString
+	Deleted    bool
+	Edited     bool
+	CreatedAt  interface{}
+	UpdatedAt  interface{}
+	ReplyCount sql.NullInt64
 }
 
 type Photo struct {
@@ -35,15 +36,18 @@ type Photo struct {
 }
 
 type Place struct {
-	ID          interface{}
-	AuthorID    interface{}
-	Title       string
-	Description sql.NullString
-	Lat         float64
-	Lng         float64
-	Category    string
-	CreatedAt   interface{}
-	UpdatedAt   interface{}
+	ID           interface{}
+	AuthorID     interface{}
+	Title        string
+	Description  sql.NullString
+	Lat          float64
+	Lng          float64
+	Category     string
+	CreatedAt    interface{}
+	UpdatedAt    interface{}
+	CommentCount sql.NullInt64
+	RatingAvg    sql.NullFloat64
+	RatingCount  sql.NullInt64
 }
 
 type PlaceTag struct {
@@ -57,6 +61,7 @@ type Rating struct {
 	PlaceID   interface{}
 	Rating    int64
 	CreatedAt interface{}
+	UpdatedAt interface{}
 }
 
 type RefreshToken struct {

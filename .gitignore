@@ -44,6 +44,8 @@ go.work.sum
 *.dex
 *.jar
 
+*.db
+
 # Editor/IDE
 # .idea/
 # .vscode/

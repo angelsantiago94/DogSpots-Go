@@ -11,14 +11,19 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// Argon2 parameters
 const (
-	memory      = 64 * 1024
-	iterations  = 3
-	parallelism = 2
-	saltLength  = 16
-	keyLength   = 32
+	defaultArgon2Memory      = 64 * 1024
+	defaultArgon2Iterations  = 3
+	defaultArgon2Parallelism = 2
+	saltLength               = 16
+	keyLength                = 32
 )
+
+type Argon2Params struct {
+	Memory      uint32
+	Iterations  uint32
+	Parallelism uint8
+}
 
 // PasswordHasher defines the interface for password hashing and verification.
 type PasswordHasher interface {
@@ -27,10 +32,20 @@ type PasswordHasher interface {
 }
 
 // Argon2Hasher implements PasswordHasher using argon2id.
-type Argon2Hasher struct{}
+type Argon2Hasher struct {
+	params Argon2Params
+}
 
 func NewArgon2Hasher() PasswordHasher {
-	return &Argon2Hasher{}
+	return NewArgon2HasherWithParams(Argon2Params{
+		Memory:      defaultArgon2Memory,
+		Iterations:  defaultArgon2Iterations,
+		Parallelism: defaultArgon2Parallelism,
+	})
+}
+
+func NewArgon2HasherWithParams(params Argon2Params) PasswordHasher {
+	return &Argon2Hasher{params: params}
 }
 
 // HashPassword hashes a password using argon2id and returns a encoded string.
@@ -40,14 +55,14 @@ func (h *Argon2Hasher) HashPassword(password string) (string, error) {
 		return "", err
 	}
 
-	hash := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, keyLength)
+	hash := argon2.IDKey([]byte(password), salt, h.params.Iterations, h.params.Memory, h.params.Parallelism, keyLength)
 
 	// Format: $argon2id$v=19$m=65536,t=3,p=2$salt$hash
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
 	encoded := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version, memory, iterations, parallelism, b64Salt, b64Hash)
+		argon2.Version, h.params.Memory, h.params.Iterations, h.params.Parallelism, b64Salt, b64Hash)
 
 	return encoded, nil
 }

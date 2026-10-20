@@ -40,76 +40,7 @@ type cursorKey struct {
 }
 
 func NewSQLiteRepository(db *sql.DB) (*SQLiteRepository, error) {
-	repo := &SQLiteRepository{db: db}
-	if err := repo.initialize(context.Background()); err != nil {
-		return nil, fmt.Errorf("initializing places schema: %w", err)
-	}
-	return repo, nil
-}
-
-func (r *SQLiteRepository) initialize(ctx context.Context) error {
-	const schema = `
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
-PRAGMA busy_timeout = 5000;
-CREATE TABLE IF NOT EXISTS tags (
-	 id TEXT PRIMARY KEY, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
-	 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS places (
-	 id TEXT PRIMARY KEY, author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-	 title TEXT NOT NULL, description TEXT, lat REAL NOT NULL, lng REAL NOT NULL,
-	 category TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_places_author_id ON places(author_id);
-CREATE INDEX IF NOT EXISTS idx_places_category ON places(category);
-CREATE INDEX IF NOT EXISTS idx_places_lat_lng ON places(lat, lng);
-CREATE INDEX IF NOT EXISTS idx_places_created_id ON places(created_at DESC, id DESC);
-CREATE TABLE IF NOT EXISTS place_tags (
-	 place_id TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-	 tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-	 PRIMARY KEY (place_id, tag_id)
-);
-CREATE INDEX IF NOT EXISTS idx_place_tags_tag_place ON place_tags(tag_id, place_id);
-CREATE TABLE IF NOT EXISTS photos (
-	 id TEXT PRIMARY KEY, place_id TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-	 url TEXT NOT NULL, thumb_url TEXT NOT NULL, caption TEXT, width INTEGER, height INTEGER,
-	 position INTEGER, uploaded_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-	 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_photos_place_id ON photos(place_id);
-CREATE TABLE IF NOT EXISTS comments (
-	 id TEXT PRIMARY KEY, place_id TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-	 parent_id TEXT REFERENCES comments(id) ON DELETE SET NULL, reply_to TEXT REFERENCES users(id) ON DELETE SET NULL,
-	 author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT,
-	 deleted INTEGER NOT NULL DEFAULT 0, edited INTEGER NOT NULL DEFAULT 0,
-	 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_comments_place_id ON comments(place_id);
-CREATE TABLE IF NOT EXISTS ratings (
-	 id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-	 place_id TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-	 rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-	 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, place_id)
-);
-CREATE INDEX IF NOT EXISTS idx_ratings_place_id ON ratings(place_id);
-`
-	if _, err := r.db.ExecContext(ctx, schema); err != nil {
-		return err
-	}
-	seed := []struct{ slug, name string }{
-		{"sin-correa", "Zona sin correa"}, {"agua", "Agua"}, {"sombra", "Sombra"},
-		{"vallado", "Vallado"}, {"bolsas", "Bolsas"}, {"terraza-perros", "Terraza que admite perros"},
-	}
-	for _, tag := range seed {
-		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://dogspots.app/tags/"+tag.slug))
-		if _, err := r.db.ExecContext(ctx,
-			`INSERT OR IGNORE INTO tags (id, slug, name) VALUES (?, ?, ?)`, id.String(), tag.slug, tag.name); err != nil {
-			return err
-		}
-	}
-	return nil
+	return &SQLiteRepository{db: db}, nil
 }
 
 func (r *SQLiteRepository) ListTags(ctx context.Context) ([]Tag, error) {

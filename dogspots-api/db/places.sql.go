@@ -118,13 +118,32 @@ func (q *Queries) GetPhotosByPlaceID(ctx context.Context, placeID interface{}) (
 }
 
 const getPlace = `-- name: GetPlace :one
-SELECT id, author_id, title, description, lat, lng, category, created_at, updated_at FROM places
+SELECT 
+    id, author_id, title, description, lat, lng, category, 
+    comment_count, rating_avg, rating_count,
+    created_at, updated_at 
+FROM places
 WHERE id = ?
 `
 
-func (q *Queries) GetPlace(ctx context.Context, id interface{}) (Place, error) {
+type GetPlaceRow struct {
+	ID           interface{}
+	AuthorID     interface{}
+	Title        string
+	Description  sql.NullString
+	Lat          float64
+	Lng          float64
+	Category     string
+	CommentCount sql.NullInt64
+	RatingAvg    sql.NullFloat64
+	RatingCount  sql.NullInt64
+	CreatedAt    interface{}
+	UpdatedAt    interface{}
+}
+
+func (q *Queries) GetPlace(ctx context.Context, id interface{}) (GetPlaceRow, error) {
 	row := q.db.QueryRowContext(ctx, getPlace, id)
-	var i Place
+	var i GetPlaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.AuthorID,
@@ -133,6 +152,9 @@ func (q *Queries) GetPlace(ctx context.Context, id interface{}) (Place, error) {
 		&i.Lat,
 		&i.Lng,
 		&i.Category,
+		&i.CommentCount,
+		&i.RatingAvg,
+		&i.RatingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -224,7 +246,11 @@ func (q *Queries) GetTagsByPlaceID(ctx context.Context, placeID interface{}) ([]
 }
 
 const listPlacesByBoundingBox = `-- name: ListPlacesByBoundingBox :many
-SELECT id, author_id, title, description, lat, lng, category, created_at, updated_at FROM places
+SELECT 
+    id, author_id, title, description, lat, lng, category, 
+    comment_count, rating_avg, rating_count,
+    created_at, updated_at 
+FROM places
 WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
 ORDER BY created_at DESC
 LIMIT ?
@@ -236,15 +262,30 @@ type ListPlacesByBoundingBoxParams struct {
 	Limit int64
 }
 
-func (q *Queries) ListPlacesByBoundingBox(ctx context.Context, arg ListPlacesByBoundingBoxParams) ([]Place, error) {
+type ListPlacesByBoundingBoxRow struct {
+	ID           interface{}
+	AuthorID     interface{}
+	Title        string
+	Description  sql.NullString
+	Lat          float64
+	Lng          float64
+	Category     string
+	CommentCount sql.NullInt64
+	RatingAvg    sql.NullFloat64
+	RatingCount  sql.NullInt64
+	CreatedAt    interface{}
+	UpdatedAt    interface{}
+}
+
+func (q *Queries) ListPlacesByBoundingBox(ctx context.Context, arg ListPlacesByBoundingBoxParams) ([]ListPlacesByBoundingBoxRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPlacesByBoundingBox, arg.Lat, arg.Lat_2, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Place
+	var items []ListPlacesByBoundingBoxRow
 	for rows.Next() {
-		var i Place
+		var i ListPlacesByBoundingBoxRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.AuthorID,
@@ -253,6 +294,9 @@ func (q *Queries) ListPlacesByBoundingBox(ctx context.Context, arg ListPlacesByB
 			&i.Lat,
 			&i.Lng,
 			&i.Category,
+			&i.CommentCount,
+			&i.RatingAvg,
+			&i.RatingCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -270,7 +314,11 @@ func (q *Queries) ListPlacesByBoundingBox(ctx context.Context, arg ListPlacesByB
 }
 
 const listUserPlaces = `-- name: ListUserPlaces :many
-SELECT id, author_id, title, description, lat, lng, category, created_at, updated_at FROM places
+SELECT 
+    id, author_id, title, description, lat, lng, category, 
+    comment_count, rating_avg, rating_count,
+    created_at, updated_at 
+FROM places
 WHERE author_id = ?
 ORDER BY created_at DESC
 LIMIT ?
@@ -281,15 +329,30 @@ type ListUserPlacesParams struct {
 	Limit    int64
 }
 
-func (q *Queries) ListUserPlaces(ctx context.Context, arg ListUserPlacesParams) ([]Place, error) {
+type ListUserPlacesRow struct {
+	ID           interface{}
+	AuthorID     interface{}
+	Title        string
+	Description  sql.NullString
+	Lat          float64
+	Lng          float64
+	Category     string
+	CommentCount sql.NullInt64
+	RatingAvg    sql.NullFloat64
+	RatingCount  sql.NullInt64
+	CreatedAt    interface{}
+	UpdatedAt    interface{}
+}
+
+func (q *Queries) ListUserPlaces(ctx context.Context, arg ListUserPlacesParams) ([]ListUserPlacesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUserPlaces, arg.AuthorID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Place
+	var items []ListUserPlacesRow
 	for rows.Next() {
-		var i Place
+		var i ListUserPlacesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.AuthorID,
@@ -298,6 +361,9 @@ func (q *Queries) ListUserPlaces(ctx context.Context, arg ListUserPlacesParams) 
 			&i.Lat,
 			&i.Lng,
 			&i.Category,
+			&i.CommentCount,
+			&i.RatingAvg,
+			&i.RatingCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -336,6 +402,29 @@ func (q *Queries) UpdatePlace(ctx context.Context, arg UpdatePlaceParams) error 
 		arg.Lat,
 		arg.Lng,
 		arg.Category,
+		arg.ID,
+	)
+	return err
+}
+
+const updatePlaceStats = `-- name: UpdatePlaceStats :exec
+UPDATE places
+SET comment_count = ?, rating_avg = ?, rating_count = ?
+WHERE id = ?
+`
+
+type UpdatePlaceStatsParams struct {
+	CommentCount sql.NullInt64
+	RatingAvg    sql.NullFloat64
+	RatingCount  sql.NullInt64
+	ID           interface{}
+}
+
+func (q *Queries) UpdatePlaceStats(ctx context.Context, arg UpdatePlaceStatsParams) error {
+	_, err := q.db.ExecContext(ctx, updatePlaceStats,
+		arg.CommentCount,
+		arg.RatingAvg,
+		arg.RatingCount,
 		arg.ID,
 	)
 	return err

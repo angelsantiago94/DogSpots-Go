@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/angellsan94/dogspots-api/db/migrations"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
@@ -18,23 +20,17 @@ func TestSQLiteRepositoryEnforcesPhotoLimitAndSupportsDelete(t *testing.T) {
 	}
 	defer database.Close()
 	database.SetMaxOpenConns(1)
-	_, err = database.Exec(`
-		CREATE TABLE users (id TEXT PRIMARY KEY);
-		CREATE TABLE places (id TEXT PRIMARY KEY);
-		CREATE TABLE photos (
-			id TEXT PRIMARY KEY, place_id TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-			url TEXT NOT NULL, thumb_url TEXT NOT NULL, caption TEXT, width INTEGER, height INTEGER,
-			position INTEGER, uploaded_by TEXT NOT NULL REFERENCES users(id),
-			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-		);`)
-	if err != nil {
+	if err := migrations.Up(ctx, database); err != nil {
 		t.Fatal(err)
 	}
 	userID, placeID := uuid.New(), uuid.New()
-	if _, err := database.Exec(`INSERT INTO users (id) VALUES (?)`, userID.String()); err != nil {
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := database.Exec(`INSERT INTO users (id, email, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		userID.String(), "photo-owner@example.test", "hash", "Photo Owner", now, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`INSERT INTO places (id) VALUES (?)`, placeID.String()); err != nil {
+	if _, err := database.Exec(`INSERT INTO places (id, author_id, title, lat, lng, category) VALUES (?, ?, ?, ?, ?, ?)`,
+		placeID.String(), userID.String(), "Photo test", 0, 0, "park"); err != nil {
 		t.Fatal(err)
 	}
 	repository := NewSQLiteRepository(database)
