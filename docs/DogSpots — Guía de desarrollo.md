@@ -130,16 +130,16 @@ El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre bac
 
 Puede empezar en paralelo a la Fase 2 una vez cerrado el contrato.
 
-- A-7.1 Crear el proyecto (Kotlin, Compose, Material 3, `minSdk` razonable, por ejemplo 26).
-- A-7.2 Estructura de módulos o paquetes por capa (`data`, `domain`, `ui`) y por funcionalidad. Hilt configurado.
-- A-7.3 Cliente de red: Retrofit + OkHttp + kotlinx.serialization; interfaces generadas o escritas a mano a partir de `openapi.yaml`.
-- A-7.4 Modelo de errores: parsear `application/problem+json` y mapear `code` a errores de dominio.
-- A-7.5 Almacén de tokens cifrado (DataStore con Android Keystore o `EncryptedSharedPreferences`).
-- A-7.6 Interceptor que añade el token y `Authenticator` que renueva con el refresh token al recibir un 401 (con exclusión mutua para que no haya renovaciones simultáneas).
-- A-7.7 Navegación (Navigation Compose) con grafo de pantallas: autenticación, mapa, detalle, creación, perfil.
-- A-7.8 Tema, tipografía, componentes comunes (botones, estados de carga, error y vacío).
-- A-7.9 Pantallas de registro e inicio de sesión con validación en cliente.
-- A-7.10 Configuración por *build variants*: `debug` apuntando a `10.0.2.2:8080` (emulador) o a tu IP local, y `release` al dominio real. Permitir tráfico HTTP solo en `debug`.
+- [x] A-7.1 Crear el proyecto (Kotlin, Compose, Material 3, `minSdk` razonable, por ejemplo 26).
+- [x] A-7.2 Estructura de módulos o paquetes por capa (`data`, `domain`, `ui`) y por funcionalidad. Hilt configurado.
+- [x] A-7.3 Cliente de red: Retrofit + OkHttp + kotlinx.serialization; interfaces generadas o escritas a mano a partir de `openapi.yaml`.
+- [x] A-7.4 Modelo de errores: parsear `application/problem+json` y mapear `code` a errores de dominio.
+- [x] A-7.5 Almacén de tokens cifrado (DataStore con Android Keystore o `EncryptedSharedPreferences`).
+- [x] A-7.6 Interceptor que añade el token y `Authenticator` que renueva con el refresh token al recibir un 401 (con exclusión mutua para que no haya renovaciones simultáneas).
+- [x] A-7.7 Navegación (Navigation Compose) con grafo de pantallas: autenticación, mapa, detalle, creación, perfil.
+- [x] A-7.8 Tema, tipografía, componentes comunes (botones, estados de carga, error y vacío).
+- [x] A-7.9 Pantallas de registro e inicio de sesión con validación en cliente.
+- [x] A-7.10 Configuración por *build variants*: `debug` apuntando a `10.0.2.2:8080` (emulador) o a tu IP local, y `release` al dominio real. Permitir tráfico HTTP solo en `debug`.
 
 **Hito:** puedes registrarte e iniciar sesión desde la app contra tu backend local.
 

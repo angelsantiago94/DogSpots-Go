@@ -1,0 +1,996 @@
+{
+    "type": "entity",
+    "name": "DogSpots Monorepo",
+    "entityType": "Proyecto",
+    "observations": [
+        "Repositorio raíz que agrupa la app Android, la API Go, documentación y despliegue local.",
+        "Estructura confirmada: android/, dogspots-api/, docs/, docker-compose.yml, README.md y CONTRIBUTING.md.",
+        "La API y Android comparten el contrato documentado en docs/openapi.yaml."
+    ]
+}
+{
+    "type": "entity",
+    "name": "DogSpots API",
+    "entityType": "Sistema backend",
+    "observations": [
+        "Servicio HTTP escrito en Go con net/http; módulo github.com/angellsan94/dogspots-api.",
+        "Su composición y registro de rutas viven en dogspots-api/cmd/api/main.go.",
+        "Persistencia SQLite, configuración por entorno y archivos multimedia locales; contenedor expone 8080.",
+        "Rutas actuales incluyen health, auth, usuarios, tags, places, photos, comments, ratings, reports y media."
+    ]
+}
+{
+    "type": "entity",
+    "name": "DogSpots Android App",
+    "entityType": "Aplicación móvil",
+    "observations": [
+        "Aplicación Android Kotlin en android/app; usa Jetpack Compose, Material 3, Navigation Compose y Hilt.",
+        "El flujo implementado visible comprende registro, login, navegación principal y logout; MainScreen indica que el mapa pertenece a la fase 8 y todavía es placeholder.",
+        "La app consume la API con Retrofit, OkHttp y kotlinx.serialization; BASE_URL cambia entre debug (emulador local) y release.",
+        "No se encontró una base de datos local de dominio; DataStore Preferences guarda los tokens."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Contrato OpenAPI",
+    "entityType": "Contrato API",
+    "observations": [
+        "Documento compartido en docs/openapi.yaml, OpenAPI 3.0.3, base path /api/v1.",
+        "Describe endpoints, modelos, autenticación Bearer, paginación y errores application/problem+json.",
+        "README y guía lo definen como referencia compartida entre backend y Android; CI valida con Redocly."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Guía de desarrollo DogSpots",
+    "entityType": "Documentación",
+    "observations": [
+        "docs/DogSpots — Guía de desarrollo.md define alcance MVP, stack y fases implementadas/pendientes.",
+        "Registra decisiones objetivo de producto, incluyendo mapas con MapLibre/OpenFreeMap y migraciones futuras; no implica que esas funciones ya estén implementadas.",
+        "Complementa el contrato OpenAPI y contiene riesgos y proceso de desarrollo."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Arranque y rutas HTTP",
+    "entityType": "Componente backend",
+    "observations": [
+        "dogspots-api/cmd/api/main.go inicializa configuración, SQLite/migraciones, repositorios, handlers y http.ServeMux.",
+        "Registra rutas /api/v1 para auth, usuarios, tags, lugares, fotos, comentarios, valoraciones y denuncias, además de /media/{filename}.",
+        "Inicia servidor con timeouts y apagado ordenado; health endpoint GET /api/v1/healthz."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Módulos backend internal",
+    "entityType": "Capa backend",
+    "observations": [
+        "dogspots-api/internal agrupa configuración, errores, middleware y módulos de dominio; varios módulos contienen juntos handlers, modelos e implementación SQLite.",
+        "Los paquetes de dominio incluyen auth, places, photos, comments, ratings y reports; users se implementa en el paquete auth mediante handlers de cuenta/perfil.",
+        "Los repositorios son dependencias de handlers; no existe una capa superior separada llamada internal/repository para todos los repositorios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Auth y usuarios backend",
+    "entityType": "Módulo backend",
+    "observations": [
+        "Paquete dogspots-api/internal/auth implementa registro/login, JWT, refresh token, middleware de autenticación y operaciones de perfil/cuenta.",
+        "Usa Argon2id para contraseñas y repositorio SQLite; el servidor inyecta AuthService y TokenManager en handlers.",
+        "Incluye endpoints de sesión y de usuario autenticado/público."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Places y tags backend",
+    "entityType": "Módulo backend",
+    "observations": [
+        "Paquete dogspots-api/internal/places gestiona lugares, consulta de lugares y etiquetas, seed de desarrollo y operaciones de cuenta relacionadas con lugares propios.",
+        "Soporta filtros geográficos, categoría, tags, texto, rating y cursores según handlers/repositorio y contrato.",
+        "El repositorio SQLite de places ejecuta SQL directamente; handlers/repositorio se encuentran dentro del mismo módulo."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Photos backend",
+    "entityType": "Módulo backend",
+    "observations": [
+        "Paquete dogspots-api/internal/photos gestiona subida/borrado de fotos asociadas a lugares y coordina repositorio, processor y Storage.",
+        "Valida y limita imágenes; procesamiento en internal/photos/processor elimina metadatos al recodificar, redimensiona y genera miniatura.",
+        "La ruta de publicación de archivos /media se resuelve mediante el componente storage."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Comments backend",
+    "entityType": "Módulo backend",
+    "observations": [
+        "Paquete dogspots-api/internal/comments gestiona creación, listado, respuestas, edición y borrado de comentarios.",
+        "Incluye lógica de respuesta a un nivel y limita la creación mediante rate limiter en el montaje de rutas.",
+        "Su repositorio SQLite usa el paquete sqlc generado dogspots-api/db."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Ratings backend",
+    "entityType": "Módulo backend",
+    "observations": [
+        "Paquete dogspots-api/internal/ratings gestiona PUT/DELETE de valoraciones de lugares y su persistencia SQLite.",
+        "Se registra en cmd/api/main.go y requiere autenticación para modificar valoraciones."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Reports backend",
+    "entityType": "Módulo backend",
+    "observations": [
+        "Paquete dogspots-api/internal/reports recibe denuncias de lugares y comentarios y las persiste en SQLite.",
+        "Se evita duplicar denuncias del mismo usuario conforme al contrato y las pruebas del módulo.",
+        "La revisión operativa se apoya en el comando dogspots-api/cmd/reports."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Configuración backend",
+    "entityType": "Componente backend",
+    "observations": [
+        "dogspots-api/internal/config carga y valida APP_ENV, PORT, DB_PATH, JWT_SECRET, MEDIA_DIR, ALLOWED_ORIGINS y parámetros Argon2.",
+        "El arranque falla si JWT_SECRET falta o los parámetros Argon2 son inválidos."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Middleware HTTP",
+    "entityType": "Componente backend",
+    "observations": [
+        "dogspots-api/internal/middleware proporciona límite de tamaño de cuerpo, CORS, logging estructurado, recuperación de pánicos y rate limiting.",
+        "El servidor envuelve el mux con MaxBodySize, CORS, Logger y Recovery; los comentarios tienen límite de tasa específico en su ruta de creación."
+    ]
+}
+{
+    "type": "entity",
+    "name": "SQLite y esquema",
+    "entityType": "Persistencia",
+    "observations": [
+        "SQLite es la base de datos del servicio; el path se configura por DB_PATH y Docker Compose usa /data/db/dogspots.db en volumen persistente.",
+        "dogspots-api/db/migrations contiene migraciones y embed.go; el arranque aplica migraciones antes de construir repositorios.",
+        "dogspots-api/db contiene modelos y código generado por sqlc; sqlc se usa explícitamente en repositorios de comments y photos, mientras places ejecuta SQL directo."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Repositorios SQLite",
+    "entityType": "Componente backend",
+    "observations": [
+        "Los repositorios SQLite viven junto a sus módulos en dogspots-api/internal/*/repository_sqlite.go.",
+        "Los handlers dependen de interfaces/repositorios para acceso a datos; las implementaciones usan database/sql y SQLite.",
+        "Comments y photos usan código generado sqlc; otros módulos también mantienen consultas SQL en sus repositorios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Almacenamiento y procesamiento multimedia",
+    "entityType": "Componente de infraestructura",
+    "observations": [
+        "dogspots-api/internal/storage implementa almacenamiento local bajo MEDIA_DIR con nombres UUID y URLs /media/{filename}.",
+        "dogspots-api/internal/photos/processor valida JPEG/PNG/WebP, limita píxeles, aplica orientación, recodifica JPEG y crea miniatura.",
+        "El servicio registra un handler de lectura local; docs/dogspots-api README documenta el proxy /media de Nginx en producción."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Comando de moderación de denuncias",
+    "entityType": "Herramienta backend",
+    "observations": [
+        "dogspots-api/cmd/reports es un comando CLI que lista denuncias SQLite por fecha con límite configurable.",
+        "Usa el repositorio de reports, acepta -db y -limit y se compila como binario dogspots-reports en Dockerfile."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Presentación Android",
+    "entityType": "Capa Android",
+    "observations": [
+        "Paquete android/.../ui contiene pantallas Compose de login, registro y pantalla principal, AuthViewModel y NavGraph.",
+        "MainActivity inyecta AuthViewModel y aplica DogSpotsGoTheme; NavGraph ofrece rutas login, register y main.",
+        "MainScreen actualmente es bienvenida/logout y señala el mapa como trabajo pendiente."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Dominio Android",
+    "entityType": "Capa Android",
+    "observations": [
+        "Paquete android/.../domain contiene el modelo User y la interfaz AuthRepository.",
+        "La interfaz expone flujos de tokens y operaciones login/register/logout; no se observa aún una capa de casos de uso para el mapa o los demás dominios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Datos Android",
+    "entityType": "Capa Android",
+    "observations": [
+        "Paquete android/.../data implementa AuthRepositoryImpl, cliente remoto de autenticación y almacenamiento de tokens.",
+        "AuthRepositoryImpl llama a AuthApiService, persiste tokens después de login/register y los limpia al logout.",
+        "La única persistencia local identificada es TokenDataSource sobre DataStore Preferences; no se confirmó cifrado en el código revisado."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Red Android",
+    "entityType": "Componente Android",
+    "observations": [
+        "NetworkModule configura Retrofit/OkHttp, kotlinx.serialization, AuthInterceptor y TokenAuthenticator con Hilt.",
+        "AuthApiService declara endpoints de autenticación y el build define BASE_URL para debug/release.",
+        "DogSpots Android App se conecta a DogSpots API; el alcance de red implementado revisado es autenticación."
+    ]
+}
+{
+    "type": "entity",
+    "name": "DataStore de tokens Android",
+    "entityType": "Componente Android",
+    "observations": [
+        "TokenDataSource usa Preferences DataStore para access_token y refresh_token, expone Flow y ofrece guardar/borrar tokens.",
+        "La implementación está en android/app/src/main/java/com/angellsan94/dogspotsgo/data/local/TokenDataSource.kt; el código revisado no demuestra cifrado del almacenamiento."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Inyección de dependencias Android",
+    "entityType": "Componente Android",
+    "observations": [
+        "DogSpotsApp lleva @HiltAndroidApp y MainActivity usa @AndroidEntryPoint.",
+        "android/.../di contiene NetworkModule y RepositoryModule, que proporcionan clientes y repositorios a la app."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Docker Compose local",
+    "entityType": "Infraestructura",
+    "observations": [
+        "docker-compose.yml ejecuta el servicio API, publica 127.0.0.1:8080, monta volúmenes persistentes de SQLite y media y define healthcheck.",
+        "Configura variables de entorno y red backend; requiere JWT_SECRET.",
+        "Nginx se ejecuta fuera de Compose según la documentación de despliegue."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Imagen Docker de la API",
+    "entityType": "Infraestructura",
+    "observations": [
+        "dogspots-api/Dockerfile compila los binarios API y reports en etapa Go y los copia a una imagen Alpine no root.",
+        "La imagen incluye SQLite/CA certificates y expone el puerto 8080; el entrypoint inicia dogspots-api."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Proxy Nginx de medios",
+    "entityType": "Infraestructura",
+    "observations": [
+        "La documentación de dogspots-api/README.md ofrece configuración de Nginx del host para proxy /media/ hacia 127.0.0.1:8080.",
+        "Nginx conserva Cache-Control de un año e immutable emitida por la API; no forma parte del servicio Docker Compose."
+    ]
+}
+{
+    "type": "entity",
+    "name": "GitHub Actions CI",
+    "entityType": "Automatización",
+    "observations": [
+        ".github/workflows/ci.yml valida OpenAPI con Redocly y la configuración de Docker Compose.",
+        "Ejecuta go vet, go test ./..., go build ./... y construye la imagen de la API.",
+        "La validación corre en push, pull request a main y workflow_dispatch."
+    ]
+}
+{
+    "type": "relation",
+    "from": "DogSpots Monorepo",
+    "to": "DogSpots API",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Monorepo",
+    "to": "DogSpots Android App",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Monorepo",
+    "to": "Contrato OpenAPI",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Monorepo",
+    "to": "Guía de desarrollo DogSpots",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Monorepo",
+    "to": "Docker Compose local",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Monorepo",
+    "to": "GitHub Actions CI",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "Arranque y rutas HTTP",
+    "relationType": "inicia mediante"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "Módulos backend internal",
+    "relationType": "orquesta"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "Configuración backend",
+    "relationType": "carga"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "Middleware HTTP",
+    "relationType": "protege con"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "SQLite y esquema",
+    "relationType": "persiste en"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "Almacenamiento y procesamiento multimedia",
+    "relationType": "sirve y almacena medios con"
+}
+{
+    "type": "relation",
+    "from": "DogSpots API",
+    "to": "Contrato OpenAPI",
+    "relationType": "implementa"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Auth y usuarios backend",
+    "relationType": "registra rutas de"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Places y tags backend",
+    "relationType": "registra rutas de"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Photos backend",
+    "relationType": "registra rutas de"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Comments backend",
+    "relationType": "registra rutas de"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Ratings backend",
+    "relationType": "registra rutas de"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Reports backend",
+    "relationType": "registra rutas de"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Middleware HTTP",
+    "relationType": "envuelve el mux con"
+}
+{
+    "type": "relation",
+    "from": "Arranque y rutas HTTP",
+    "to": "Configuración backend",
+    "relationType": "consume"
+}
+{
+    "type": "relation",
+    "from": "Módulos backend internal",
+    "to": "Auth y usuarios backend",
+    "relationType": "incluye"
+}
+{
+    "type": "relation",
+    "from": "Módulos backend internal",
+    "to": "Places y tags backend",
+    "relationType": "incluye"
+}
+{
+    "type": "relation",
+    "from": "Módulos backend internal",
+    "to": "Photos backend",
+    "relationType": "incluye"
+}
+{
+    "type": "relation",
+    "from": "Módulos backend internal",
+    "to": "Comments backend",
+    "relationType": "incluye"
+}
+{
+    "type": "relation",
+    "from": "Módulos backend internal",
+    "to": "Ratings backend",
+    "relationType": "incluye"
+}
+{
+    "type": "relation",
+    "from": "Módulos backend internal",
+    "to": "Reports backend",
+    "relationType": "incluye"
+}
+{
+    "type": "relation",
+    "from": "Auth y usuarios backend",
+    "to": "Repositorios SQLite",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Places y tags backend",
+    "to": "Repositorios SQLite",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Photos backend",
+    "to": "Repositorios SQLite",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Comments backend",
+    "to": "Repositorios SQLite",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Ratings backend",
+    "to": "Repositorios SQLite",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Reports backend",
+    "to": "Repositorios SQLite",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Repositorios SQLite",
+    "to": "SQLite y esquema",
+    "relationType": "consulta y modifica"
+}
+{
+    "type": "relation",
+    "from": "Comments backend",
+    "to": "SQLite y esquema",
+    "relationType": "usa código sqlc generado en"
+}
+{
+    "type": "relation",
+    "from": "Photos backend",
+    "to": "SQLite y esquema",
+    "relationType": "usa código sqlc generado en"
+}
+{
+    "type": "relation",
+    "from": "Photos backend",
+    "to": "Almacenamiento y procesamiento multimedia",
+    "relationType": "procesa y gestiona fotos con"
+}
+{
+    "type": "relation",
+    "from": "Reports backend",
+    "to": "Comando de moderación de denuncias",
+    "relationType": "provee datos a"
+}
+{
+    "type": "relation",
+    "from": "Comando de moderación de denuncias",
+    "to": "SQLite y esquema",
+    "relationType": "consulta"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Android App",
+    "to": "Presentación Android",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Android App",
+    "to": "Dominio Android",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Android App",
+    "to": "Datos Android",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "DogSpots Android App",
+    "to": "Inyección de dependencias Android",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "Presentación Android",
+    "to": "Dominio Android",
+    "relationType": "consume"
+}
+{
+    "type": "relation",
+    "from": "Datos Android",
+    "to": "Dominio Android",
+    "relationType": "implementa contratos de"
+}
+{
+    "type": "relation",
+    "from": "Datos Android",
+    "to": "Red Android",
+    "relationType": "consume"
+}
+{
+    "type": "relation",
+    "from": "Datos Android",
+    "to": "DataStore de tokens Android",
+    "relationType": "persiste tokens mediante"
+}
+{
+    "type": "relation",
+    "from": "Red Android",
+    "to": "DogSpots API",
+    "relationType": "consume endpoints de"
+}
+{
+    "type": "relation",
+    "from": "Inyección de dependencias Android",
+    "to": "Red Android",
+    "relationType": "proporciona dependencias a"
+}
+{
+    "type": "relation",
+    "from": "Inyección de dependencias Android",
+    "to": "Datos Android",
+    "relationType": "proporciona dependencias a"
+}
+{
+    "type": "relation",
+    "from": "Red Android",
+    "to": "Contrato OpenAPI",
+    "relationType": "se alinea con"
+}
+{
+    "type": "relation",
+    "from": "Contrato OpenAPI",
+    "to": "Guía de desarrollo DogSpots",
+    "relationType": "complementa"
+}
+{
+    "type": "relation",
+    "from": "Docker Compose local",
+    "to": "Imagen Docker de la API",
+    "relationType": "construye y ejecuta"
+}
+{
+    "type": "relation",
+    "from": "Docker Compose local",
+    "to": "SQLite y esquema",
+    "relationType": "persiste archivos de"
+}
+{
+    "type": "relation",
+    "from": "Docker Compose local",
+    "to": "Almacenamiento y procesamiento multimedia",
+    "relationType": "monta volumen para"
+}
+{
+    "type": "relation",
+    "from": "Imagen Docker de la API",
+    "to": "DogSpots API",
+    "relationType": "empaqueta"
+}
+{
+    "type": "relation",
+    "from": "Imagen Docker de la API",
+    "to": "Comando de moderación de denuncias",
+    "relationType": "empaqueta"
+}
+{
+    "type": "relation",
+    "from": "Proxy Nginx de medios",
+    "to": "DogSpots API",
+    "relationType": "reenvía solicitudes media a"
+}
+{
+    "type": "relation",
+    "from": "GitHub Actions CI",
+    "to": "Contrato OpenAPI",
+    "relationType": "valida"
+}
+{
+    "type": "relation",
+    "from": "GitHub Actions CI",
+    "to": "Docker Compose local",
+    "relationType": "valida configuración de"
+}
+{
+    "type": "relation",
+    "from": "GitHub Actions CI",
+    "to": "DogSpots API",
+    "relationType": "prueba y compila"
+}
+{
+    "type": "relation",
+    "from": "Guía de desarrollo DogSpots",
+    "to": "DogSpots Monorepo",
+    "relationType": "documenta"
+}
+{
+    "type": "entity",
+    "name": "DogSpots API",
+    "entityType": "Sistema",
+    "observations": [
+        "Backend para la aplicación DogSpots.",
+        "Escrito en Go.",
+        "Utiliza SQLite como base de datos.",
+        "Utiliza sqlc para la gestión de SQL.",
+        "Usa Nginx como proxy para el almacenamiento de medios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Aplicación (cmd)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Contiene los puntos de entrada del sistema.",
+        "cmd/api: Servidor API principal.",
+        "cmd/reports: Procesador de reportes."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Transporte (api)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Contiene la definición de rutas y posiblemente los handlers HTTP."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Negocio (internal)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Contiene la lógica central del dominio dividida en módulos."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Persistencia (repository)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Gestiona el acceso a los datos."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Base de Datos",
+    "entityType": "Componente de Infraestructura",
+    "observations": [
+        "SQLite (dogspots.db).",
+        "Gestionada con sqlc."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Almacenamiento de Medios (storage)",
+    "entityType": "Componente de Infraestructura",
+    "observations": [
+        "Gestiona la subida y recuperación de fotos/media.",
+        "Se sirve a través de Nginx."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Auth",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de autenticación."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Users",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de usuarios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Places",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de lugares/parques."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Photos",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de fotos."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Ratings",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de calificaciones."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Reports",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de reportes."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Comments",
+    "entityType": "Dominio/Módulo",
+    "observations": [
+        "Gestión de comentarios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "DogSpots Android App",
+    "entityType": "Sistema Móvil",
+    "observations": [
+        "Aplicación móvil para Android.",
+        "Escrita en Kotlin.",
+        "Arquitectura basada en Clean Architecture / MVVM.",
+        "Utiliza Jetpack Compose (basado en la carpeta 'ui/theme' y estructura).",
+        "Usa Hilt o Koin para la Inyección de Dependencias (carpeta 'di')."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Presentación (ui)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Contiene los componentes de la interfaz de usuario.",
+        "ui/auth: Pantallas de autenticación.",
+        "ui/main: Pantalla principal.",
+        "ui/navigation: Gestión de la navegación.",
+        "ui/theme: Definiciones de diseño y temas."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Dominio (domain)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Contiene la lógica de negocio pura.",
+        "domain/model: Modelos de datos del dominio.",
+        "domain/repository: Interfaces de los repositorios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Datos (data)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Implementación de la persistencia y obtención de datos.",
+        "data/local: Almacenamiento local (posiblemente Room o similares).",
+        "data/remote: Consumo de la API (Retrofit o similar).",
+        "data/repository: Implementación de las interfaces de dominio."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Capa de Inyección de Dependencias (di)",
+    "entityType": "Capa de Arquitectura",
+    "observations": [
+        "Gestiona la creación y provisión de dependencias.",
+        "di/NetworkModule: Configuración de red.",
+        "di/RepositoryModule: Configuración de repositorios."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Red (Remote Data Source)",
+    "entityType": "Componente de Infraestructura",
+    "observations": [
+        "Conecta con la DogSpots API."
+    ]
+}
+{
+    "type": "entity",
+    "name": "Base de Datos Local (Local Data Source)",
+    "entityType": "Componente de Infraestructura",
+    "observations": [
+        "Almacenamiento local en el dispositivo."
+    ]
+}
+{
+    "type": "relation",
+    "from": "Capa de Aplicación (cmd)",
+    "to": "DogSpots API",
+    "relationType": "contiene"
+}
+{
+    "type": "relation",
+    "from": "Capa de Transporte (api)",
+    "to": "DogSpots API",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Negocio (internal)",
+    "to": "DogSpots API",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Persistencia (repository)",
+    "to": "DogSpots API",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Base de Datos",
+    "to": "Capa de Persistencia (repository)",
+    "relationType": "es utilizada por"
+}
+{
+    "type": "relation",
+    "from": "Almacenamiento de Medios (storage)",
+    "to": "DogSpots API",
+    "relationType": "es utilizada por"
+}
+{
+    "type": "relation",
+    "from": "Auth",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Users",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Places",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Photos",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Ratings",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Reports",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Comments",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Persistencia (repository)",
+    "to": "Capa de Negocio (internal)",
+    "relationType": "soporta a"
+}
+{
+    "type": "relation",
+    "from": "Capa de Presentación (ui)",
+    "to": "DogSpots Android App",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Dominio (domain)",
+    "to": "DogSpots Android App",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Datos (data)",
+    "to": "DogSpots Android App",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Inyección de Dependencias (di)",
+    "to": "DogSpots Android App",
+    "relationType": "es parte de"
+}
+{
+    "type": "relation",
+    "from": "Capa de Presentación (ui)",
+    "to": "Capa de Dominio (domain)",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Capa de Datos (data)",
+    "to": "Capa de Dominio (domain)",
+    "relationType": "implementa"
+}
+{
+    "type": "relation",
+    "from": "Capa de Inyección de Dependencias (di)",
+    "to": "Capa de Presentación (ui)",
+    "relationType": "provee dependencias a"
+}
+{
+    "type": "relation",
+    "from": "Capa de Inyección de Dependencias (di)",
+    "to": "Capa de Datos (data)",
+    "relationType": "provee dependencias a"
+}
+{
+    "type": "relation",
+    "from": "Capa de Datos (data)",
+    "to": "Red (Remote Data Source)",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Capa de Datos (data)",
+    "to": "Base de Datos Local (Local Data Source)",
+    "relationType": "usa"
+}
+{
+    "type": "relation",
+    "from": "Red (Remote Data Source)",
+    "to": "DogSpots API",
+    "relationType": "se conecta con"
+}
