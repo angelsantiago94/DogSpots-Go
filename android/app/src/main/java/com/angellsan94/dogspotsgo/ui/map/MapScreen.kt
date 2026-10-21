@@ -36,10 +36,8 @@ fun MapScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    val placeDetailState by placeDetailViewModel.uiState.collectAsState()
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var createPlaceCoordinates by remember { mutableStateOf<LatLng?>(null) }
-    var showPlaceDetail by remember { mutableStateOf(false) }
 
     remember {
         MapLibre.getInstance(context)
@@ -97,7 +95,10 @@ fun MapScreen(
             )
         }
         map.setOnMarkerClickListener { marker ->
-            uiState.places.firstOrNull { it.id == marker.snippet }?.let(viewModel::selectPlace)
+            uiState.places.firstOrNull { it.id == marker.snippet }?.let { place ->
+                viewModel.selectPlace(place)
+                placeDetailViewModel.loadPlaceDetailAndComments(place.id)
+            }
             true
         }
     }
@@ -212,55 +213,14 @@ fun MapScreen(
             }
 
             if (uiState.selectedPlace != null) {
-                val place = uiState.selectedPlace!!
-                if (showPlaceDetail) {
-                    ModalBottomSheet(
-                        onDismissRequest = {
-                            showPlaceDetail = false
-                            viewModel.selectPlace(null)
-                        },
-                        sheetState = sheetState
-                    ) {
-                        PlaceDetailScreen(
-                            viewModel = placeDetailViewModel,
-                            onBack = {
-                                showPlaceDetail = false
-                                viewModel.selectPlace(null)
-                            }
-                        )
-                    }
-                } else ModalBottomSheet(
+                ModalBottomSheet(
                     onDismissRequest = { viewModel.selectPlace(null) },
                     sheetState = sheetState
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                    ) {
-                        Text(text = place.title, style = MaterialTheme.typography.titleLarge)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Categoría: ${place.category.name}", style = MaterialTheme.typography.bodyMedium)
-                        if (place.ratingAvg != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = "Valoración: ${place.ratingAvg} (${place.ratingCount} opiniones)", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (place.distanceM != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = "Distancia: ${place.distanceM} m", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Button(
-                            onClick = {
-                                placeDetailViewModel.loadPlaceDetailAndComments(place.id)
-                                showPlaceDetail = true
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Ver Detalle")
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                    }
+                    PlaceDetailScreen(
+                        viewModel = placeDetailViewModel,
+                        onBack = { viewModel.selectPlace(null) }
+                    )
                 }
             }
         }
