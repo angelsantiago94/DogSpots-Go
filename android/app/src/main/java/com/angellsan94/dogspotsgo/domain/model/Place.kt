@@ -1,7 +1,7 @@
 package com.angellsan94.dogspotsgo.domain.model
 
 enum class PlaceCategory {
-    PARQUE, BAR_RESTAURANTE, PLAYA, RUTA_NATURAL, PIPICAN_AREA_CANINA, VETERINARIO_TIENDA, OTRO
+    PARK, BEACH, TRAIL, DOG_PARK, CAFE, RESTAURANT, OTHER
 }
 
 data class Place(

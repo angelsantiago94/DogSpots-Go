@@ -13,18 +13,20 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.angellsan94.dogspotsgo.domain.model.Place
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.Style
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     viewModel: MapViewModel,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToDetail: (String) -> Unit,
+    onNavigateToCreate: () -> Unit,
+    onNavigateToMyPlaces: () -> Unit,
+    onNavigateToProfile: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -61,6 +63,25 @@ fun MapScreen(
     val sheetState = rememberModalBottomSheetState()
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("DogSpots Go") },
+                actions = {
+                    TextButton(onClick = onNavigateToCreate) {
+                        Text("+ Crear")
+                    }
+                    TextButton(onClick = onNavigateToMyPlaces) {
+                        Text("Mis Lugares")
+                    }
+                    TextButton(onClick = onNavigateToProfile) {
+                        Text("Perfil")
+                    }
+                    TextButton(onClick = onLogout) {
+                        Text("Salir")
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             Button(
                 onClick = { viewModel.fetchUserLocation() },
@@ -80,7 +101,7 @@ fun MapScreen(
                     MapView(ctx).apply {
                         onCreate(null)
                         getMapAsync { map ->
-                            map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
+                            map.setStyle("https://tiles.openfreemap.org/styles/liberty") { _ ->
                                 val initialLat = uiState.userLocation?.latitude ?: 40.4168
                                 val initialLng = uiState.userLocation?.longitude ?: -3.7038
                                 map.cameraPosition = CameraPosition.Builder()
@@ -136,7 +157,7 @@ fun MapScreen(
                         }
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = { /* TODO: Detail */ },
+                            onClick = { onNavigateToDetail(place.id) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Ver Detalle")

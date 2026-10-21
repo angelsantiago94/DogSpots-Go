@@ -5,13 +5,13 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class PlaceCategoryDto {
-    @SerialName("parque") PARQUE,
-    @SerialName("bar_restaurante") BAR_RESTAURANTE,
-    @SerialName("playa") PLAYA,
-    @SerialName("ruta_natural") RUTA_NATURAL,
-    @SerialName("pipican_area_canina") PIPICAN_AREA_CANINA,
-    @SerialName("veterinario_tienda") VETERINARIO_TIENDA,
-    @SerialName("otro") OTRO
+    @SerialName("park") PARK,
+    @SerialName("beach") BEACH,
+    @SerialName("trail") TRAIL,
+    @SerialName("dog_park") DOG_PARK,
+    @SerialName("cafe") CAFE,
+    @SerialName("restaurant") RESTAURANT,
+    @SerialName("other") OTHER
 }
 
 @Serializable

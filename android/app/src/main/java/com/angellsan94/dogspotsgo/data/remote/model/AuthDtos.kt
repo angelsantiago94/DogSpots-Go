@@ -7,7 +7,7 @@ data class UserDto(
     val id: String,
     val email: String,
     val name: String,
-    val created_at: String
+    val created_at: String? = null
 )
 
 @Serializable
@@ -18,8 +18,10 @@ data class TokenPairDto(
 
 @Serializable
 data class AuthResponseDto(
-    val user: UserDto,
-    val tokens: TokenPairDto
+    val access_token: String,
+    val refresh_token: String,
+    val user_id: String,
+    val expires_in: Long
 )
 
 @Serializable

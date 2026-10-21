@@ -1,18 +1,32 @@
 package com.angellsan94.dogspotsgo.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.angellsan94.dogspotsgo.ui.auth.AuthViewModel
 import com.angellsan94.dogspotsgo.ui.auth.LoginScreen
 import com.angellsan94.dogspotsgo.ui.auth.RegisterScreen
 import com.angellsan94.dogspotsgo.ui.main.MainScreen
+import com.angellsan94.dogspotsgo.ui.place.*
+import com.angellsan94.dogspotsgo.ui.profile.*
 
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
     data object Register : Screen("register")
     data object Main : Screen("main")
+    data object PlaceDetail : Screen("place_detail/{placeId}") {
+        fun createRoute(placeId: String) = "place_detail/$placeId"
+    }
+    data object CreatePlace : Screen("create_place")
+    data object MyPlaces : Screen("my_places")
+    data object Profile : Screen("profile")
+    data object PublicProfile : Screen("public_profile/{userId}") {
+        fun createRoute(userId: String) = "public_profile/$userId"
+    }
 }
 
 @Composable
@@ -55,7 +69,69 @@ fun NavGraph(authViewModel: AuthViewModel) {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Main.route) { inclusive = true }
                     }
+                },
+                onNavigateToDetail = { placeId ->
+                    navController.navigate(Screen.PlaceDetail.createRoute(placeId))
+                },
+                onNavigateToCreate = {
+                    navController.navigate(Screen.CreatePlace.route)
+                },
+                onNavigateToMyPlaces = {
+                    navController.navigate(Screen.MyPlaces.route)
+                },
+                onNavigateToProfile = {
+                    navController.navigate(Screen.Profile.route)
                 }
+            )
+        }
+        composable(
+            route = Screen.PlaceDetail.route,
+            arguments = listOf(navArgument("placeId") { type = NavType.StringType })
+        ) {
+            val viewModel: PlaceDetailViewModel = hiltViewModel()
+            PlaceDetailScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.CreatePlace.route) {
+            val viewModel: CreatePlaceViewModel = hiltViewModel()
+            CreatePlaceScreen(
+                viewModel = viewModel,
+                onSuccess = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.MyPlaces.route) {
+            val viewModel: MyPlacesViewModel = hiltViewModel()
+            MyPlacesScreen(
+                viewModel = viewModel,
+                onPlaceClick = { placeId ->
+                    navController.navigate(Screen.PlaceDetail.createRoute(placeId))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Profile.route) {
+            val viewModel: ProfileViewModel = hiltViewModel()
+            ProfileScreen(
+                viewModel = viewModel,
+                onLogoutSuccess = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = Screen.PublicProfile.route,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) {
+            val viewModel: PublicProfileViewModel = hiltViewModel()
+            PublicProfileScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
             )
         }
     }
