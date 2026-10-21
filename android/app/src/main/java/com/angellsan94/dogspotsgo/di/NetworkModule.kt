@@ -4,6 +4,7 @@ import com.angellsan94.dogspotsgo.BuildConfig
 import com.angellsan94.dogspotsgo.data.local.TokenDataSource
 import com.angellsan94.dogspotsgo.data.remote.AuthApiService
 import com.angellsan94.dogspotsgo.data.remote.AuthInterceptor
+import com.angellsan94.dogspotsgo.data.remote.PlacesApiService
 import com.angellsan94.dogspotsgo.data.remote.TokenAuthenticator
 import dagger.Module
 import dagger.Provides
@@ -75,5 +76,11 @@ object NetworkModule {
     @Singleton
     fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
         return retrofit.create(AuthApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun providePlacesApiService(retrofit: Retrofit): PlacesApiService {
+        return retrofit.create(PlacesApiService::class.java)
     }
 }

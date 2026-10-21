@@ -8,9 +8,7 @@ plugins {
 
 android {
     namespace = "com.angellsan94.dogspotsgo"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.angellsan94.dogspotsgo"
@@ -57,6 +55,7 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // Retrofit & OkHttp & Serialization
     implementation(libs.retrofit)
@@ -69,6 +68,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
+
+    // MapLibre & Location
+    implementation(libs.maplibre.android)
+    implementation(libs.play.services.location)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
