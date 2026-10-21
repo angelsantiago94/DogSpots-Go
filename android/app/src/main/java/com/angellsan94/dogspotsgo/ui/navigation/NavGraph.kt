@@ -21,7 +21,10 @@ sealed class Screen(val route: String) {
     data object PlaceDetail : Screen("place_detail/{placeId}") {
         fun createRoute(placeId: String) = "place_detail/$placeId"
     }
-    data object CreatePlace : Screen("create_place")
+    data object CreatePlace : Screen("create_place?lat={lat}&lng={lng}") {
+        fun createRoute() = "create_place"
+        fun createRoute(lat: Double, lng: Double) = "create_place?lat=$lat&lng=$lng"
+    }
     data object MyPlaces : Screen("my_places")
     data object Profile : Screen("profile")
     data object PublicProfile : Screen("public_profile/{userId}") {
@@ -74,7 +77,10 @@ fun NavGraph(authViewModel: AuthViewModel) {
                     navController.navigate(Screen.PlaceDetail.createRoute(placeId))
                 },
                 onNavigateToCreate = {
-                    navController.navigate(Screen.CreatePlace.route)
+                    navController.navigate(Screen.CreatePlace.createRoute())
+                },
+                onNavigateToCreateAt = { lat, lng ->
+                    navController.navigate(Screen.CreatePlace.createRoute(lat, lng))
                 },
                 onNavigateToMyPlaces = {
                     navController.navigate(Screen.MyPlaces.route)
@@ -94,10 +100,18 @@ fun NavGraph(authViewModel: AuthViewModel) {
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(Screen.CreatePlace.route) {
+        composable(
+            route = Screen.CreatePlace.route,
+            arguments = listOf(
+                navArgument("lat") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("lng") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
+        ) { entry ->
             val viewModel: CreatePlaceViewModel = hiltViewModel()
             CreatePlaceScreen(
                 viewModel = viewModel,
+                defaultLat = entry.arguments?.getString("lat")?.toDoubleOrNull() ?: 40.4168,
+                defaultLng = entry.arguments?.getString("lng")?.toDoubleOrNull() ?: -3.7038,
                 onSuccess = { navController.popBackStack() },
                 onBack = { navController.popBackStack() }
             )

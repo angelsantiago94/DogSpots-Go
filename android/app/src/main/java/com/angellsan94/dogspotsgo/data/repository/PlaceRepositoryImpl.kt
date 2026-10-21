@@ -8,6 +8,9 @@ import com.angellsan94.dogspotsgo.data.remote.model.PlaceCategoryDto
 import com.angellsan94.dogspotsgo.data.remote.model.UpdatePlaceRequestDto
 import com.angellsan94.dogspotsgo.domain.model.*
 import com.angellsan94.dogspotsgo.domain.repository.PlaceRepository
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 class PlaceRepositoryImpl @Inject constructor(
@@ -170,6 +173,30 @@ class PlaceRepositoryImpl @Inject constructor(
             commentCount = dto.comment_count,
             authorName = dto.author.display_name,
             authorId = dto.author.id,
+            createdAt = dto.created_at
+        )
+    }
+
+    override suspend fun uploadPhoto(
+        placeId: String,
+        image: ByteArray,
+        fileName: String,
+        mimeType: String
+    ): Photo = handleApiCall {
+        val filePart = MultipartBody.Part.createFormData(
+            "file",
+            fileName,
+            image.toRequestBody(mimeType.toMediaTypeOrNull())
+        )
+        val dto = placesApiService.uploadPhoto(placeId, filePart)
+        Photo(
+            id = dto.id,
+            url = dto.url.toFullMediaUrl() ?: "",
+            thumbUrl = dto.thumb_url.toFullMediaUrl() ?: "",
+            caption = dto.caption,
+            width = dto.width,
+            height = dto.height,
+            position = dto.position,
             createdAt = dto.created_at
         )
     }

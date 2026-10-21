@@ -1,5 +1,7 @@
 package com.angellsan94.dogspotsgo.ui.place
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -10,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.angellsan94.dogspotsgo.domain.model.Comment
@@ -22,6 +25,22 @@ fun PlaceDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var commentText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            try {
+                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val image = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (image == null) {
+                    viewModel.showPhotoUploadError("No se pudo leer la imagen seleccionada.")
+                } else {
+                    viewModel.uploadPhoto(image, "photo", mimeType)
+                }
+            } catch (_: Exception) {
+                viewModel.showPhotoUploadError("No se pudo leer la imagen seleccionada.")
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -62,6 +81,31 @@ fun PlaceDetailScreen(
                             .verticalScroll(rememberScrollState())
                             .padding(16.dp)
                     ) {
+                        Text(text = "Fotos", style = MaterialTheme.typography.titleLarge)
+                        if (state.isOwner) {
+                            Button(
+                                onClick = { photoPicker.launch("image/*") },
+                                enabled = !state.isUploadingPhoto && place.photos.size < 8,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    if (place.photos.size >= 8) "Límite de 8 fotos alcanzado"
+                                    else "Añadir fotos (${place.photos.size}/8)"
+                                )
+                            }
+                        }
+                        if (state.isUploadingPhoto) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                Text("Subiendo foto...")
+                            }
+                        }
+                        state.photoUploadError?.let { error ->
+                            Text(error, color = MaterialTheme.colorScheme.error)
+                        }
                         if (place.photos.isNotEmpty()) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -80,6 +124,9 @@ fun PlaceDetailScreen(
                                     )
                                 }
                             }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        } else {
+                            Text("Aún no hay fotos para este lugar.")
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 

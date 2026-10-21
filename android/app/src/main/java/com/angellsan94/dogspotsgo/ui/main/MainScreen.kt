@@ -10,6 +10,7 @@ fun MainScreen(
     onLogout: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
     onNavigateToCreate: () -> Unit,
+    onNavigateToCreateAt: (Double, Double) -> Unit,
     onNavigateToMyPlaces: () -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
@@ -19,6 +20,7 @@ fun MainScreen(
         onLogout = onLogout,
         onNavigateToDetail = onNavigateToDetail,
         onNavigateToCreate = onNavigateToCreate,
+        onNavigateToCreateAt = onNavigateToCreateAt,
         onNavigateToMyPlaces = onNavigateToMyPlaces,
         onNavigateToProfile = onNavigateToProfile
     )

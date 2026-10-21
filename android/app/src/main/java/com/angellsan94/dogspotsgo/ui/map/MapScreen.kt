@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.maps.MapLibreMap
@@ -27,12 +28,14 @@ fun MapScreen(
     onLogout: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
     onNavigateToCreate: () -> Unit,
+    onNavigateToCreateAt: (Double, Double) -> Unit,
     onNavigateToMyPlaces: () -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
+    var createPlaceCoordinates by remember { mutableStateOf<LatLng?>(null) }
 
     remember {
         MapLibre.getInstance(context)
@@ -41,26 +44,39 @@ fun MapScreen(
 
     var hasLocationPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         )
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
+        contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
-        hasLocationPermission = granted
-        if (granted) {
+        hasLocationPermission = granted.values.any { it }
+        if (hasLocationPermission) {
             viewModel.fetchUserLocation()
         }
     }
 
     LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (hasLocationPermission) {
+            viewModel.fetchUserLocation()
+        } else {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
         }
+    }
+
+    LaunchedEffect(mapLibreMap, uiState.userLocation) {
+        val map = mapLibreMap ?: return@LaunchedEffect
+        val location = uiState.userLocation ?: return@LaunchedEffect
+        map.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(location.latitude, location.longitude),
+                14.0
+            )
+        )
     }
 
     val sheetState = rememberModalBottomSheetState()
@@ -104,7 +120,15 @@ fun MapScreen(
         },
         floatingActionButton = {
             Button(
-                onClick = { viewModel.fetchUserLocation() },
+                onClick = {
+                    if (hasLocationPermission) {
+                        viewModel.fetchUserLocation()
+                    } else {
+                        permissionLauncher.launch(
+                            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        )
+                    }
+                },
                 modifier = Modifier.padding(bottom = if (uiState.selectedPlace != null) 180.dp else 16.dp)
             ) {
                 Text("Mi ubicación")
@@ -138,6 +162,10 @@ fun MapScreen(
                                         maxLng = bounds.longitudeEast
                                     )
                                 }
+                                map.addOnMapLongClickListener { coordinates ->
+                                    createPlaceCoordinates = coordinates
+                                    true
+                                }
                                 mapLibreMap = map
                             }
                         }
@@ -145,6 +173,31 @@ fun MapScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            createPlaceCoordinates?.let { coordinates ->
+                AlertDialog(
+                    onDismissRequest = { createPlaceCoordinates = null },
+                    title = { Text("Crear lugar aquí") },
+                    text = {
+                        Text("¿Quieres crear un lugar en ${coordinates.latitude}, ${coordinates.longitude}?")
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                onNavigateToCreateAt(coordinates.latitude, coordinates.longitude)
+                                createPlaceCoordinates = null
+                            }
+                        ) {
+                            Text("Crear lugar")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { createPlaceCoordinates = null }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
 
             if (uiState.isLoading) {
                 CircularProgressIndicator(

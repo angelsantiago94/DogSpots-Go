@@ -30,13 +30,9 @@ class MapViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
-    init {
-        fetchUserLocation()
-    }
-
     fun fetchUserLocation() {
         viewModelScope.launch {
-            val loc = locationManager.getLastKnownLocation()
+            val loc = locationManager.getCurrentLocation()
             if (loc != null) {
                 _uiState.update { it.copy(userLocation = loc) }
                 loadPlacesForDefaultBbox(loc.latitude, loc.longitude)

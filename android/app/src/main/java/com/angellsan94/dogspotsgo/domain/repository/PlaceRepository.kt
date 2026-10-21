@@ -2,6 +2,7 @@ package com.angellsan94.dogspotsgo.domain.repository
 
 import com.angellsan94.dogspotsgo.domain.model.Place
 import com.angellsan94.dogspotsgo.domain.model.PlaceDetail
+import com.angellsan94.dogspotsgo.domain.model.Photo
 import com.angellsan94.dogspotsgo.domain.model.Tag
 
 interface PlaceRepository {
@@ -34,6 +35,8 @@ interface PlaceRepository {
         category: String?,
         tags: List<String>?
     ): PlaceDetail
+
+    suspend fun uploadPhoto(placeId: String, image: ByteArray, fileName: String, mimeType: String): Photo
 
     suspend fun deletePlace(placeId: String)
 
