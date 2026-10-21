@@ -54,7 +54,7 @@ interface PlacesApiService {
     suspend fun uploadPhoto(
         @Path("placeId") placeId: String,
         @Part file: MultipartBody.Part,
-        @Part caption: RequestBody? = null
+        @Part("caption") caption: RequestBody? = null
     ): PhotoDto
 
     @DELETE("places/{placeId}/photos/{photoId}")
