@@ -16,6 +16,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,6 +32,7 @@ fun MapScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
 
     remember {
         MapLibre.getInstance(context)
@@ -61,6 +64,23 @@ fun MapScreen(
     }
 
     val sheetState = rememberModalBottomSheetState()
+
+    LaunchedEffect(mapLibreMap, uiState.places) {
+        val map = mapLibreMap ?: return@LaunchedEffect
+        map.clear()
+        uiState.places.forEach { place ->
+            map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(place.lat, place.lng))
+                    .title(place.title)
+                    .snippet(place.id)
+            )
+        }
+        map.setOnMarkerClickListener { marker ->
+            uiState.places.firstOrNull { it.id == marker.snippet }?.let(viewModel::selectPlace)
+            true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -118,6 +138,7 @@ fun MapScreen(
                                         maxLng = bounds.longitudeEast
                                     )
                                 }
+                                mapLibreMap = map
                             }
                         }
                     }
