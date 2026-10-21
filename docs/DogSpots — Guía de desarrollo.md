@@ -120,9 +120,9 @@ El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre bac
 
 ### Fase 6 — Denuncias y cuenta (2–3 días)
 
-- B-6.1 `POST /places/{id}/reports` y `POST /comments/{id}/reports`; evitar denuncias duplicadas del mismo usuario.
-- B-6.2 `DELETE /users/me`: decidir y documentar qué se borra y qué se anonimiza (por ejemplo, comentarios con respuestas pasan a "eliminado"); revocar sesiones.
-- B-6.3 Mecanismo mínimo para revisar denuncias (consulta SQL o un comando CLI; el panel de administración queda para después).
+- [x] B-6.1 `POST /places/{id}/reports` y `POST /comments/{id}/reports`; evitar denuncias duplicadas del mismo usuario.
+- [x] B-6.2 `DELETE /users/me`: decidir y documentar qué se borra y qué se anonimiza (por ejemplo, comentarios con respuestas pasan a "eliminado"); revocar sesiones.
+- [x] B-6.3 Mecanismo mínimo para revisar denuncias (consulta SQL o un comando CLI; el panel de administración queda para después).
 
 **Hito de backend:** todos los endpoints del contrato implementados. Revisar que lo implementado coincide con `openapi.yaml`.
 

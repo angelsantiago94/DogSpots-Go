@@ -21,6 +21,7 @@ import (
 	"github.com/angellsan94/dogspots-api/internal/photos"
 	"github.com/angellsan94/dogspots-api/internal/places"
 	"github.com/angellsan94/dogspots-api/internal/ratings"
+	"github.com/angellsan94/dogspots-api/internal/reports"
 	"github.com/angellsan94/dogspots-api/internal/storage"
 	_ "modernc.org/sqlite"
 )
@@ -91,6 +92,9 @@ func main() {
 	commentCreateRateLimit := middleware.NewRateLimiter(5, time.Minute)
 	ratingsRepo := ratings.NewSQLiteRepository(db)
 	ratingsHandler := ratings.NewHandler(ratingsRepo)
+	reportsRepo := reports.NewSQLiteRepository(db)
+	reportsHandler := reports.NewHandler(reportsRepo)
+	accountHandler := auth.NewAccountHandler(repo, fileStorage)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/healthz", healthzHandler)
@@ -100,6 +104,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/logout", handler.Logout)
 	mux.Handle("GET /api/v1/users/me", auth.RequireAuth(tokenManager, http.HandlerFunc(handler.GetMe)))
 	mux.Handle("PATCH /api/v1/users/me", auth.RequireAuth(tokenManager, http.HandlerFunc(handler.UpdateMe)))
+	mux.Handle("DELETE /api/v1/users/me", auth.RequireAuth(tokenManager, http.HandlerFunc(accountHandler.DeleteMe)))
 	mux.HandleFunc("GET /api/v1/users/{userId}", handler.GetUserByID)
 	mux.HandleFunc("GET /api/v1/tags", placesHandler.ListTags)
 	mux.HandleFunc("GET /api/v1/places", placesHandler.List)
@@ -116,6 +121,8 @@ func main() {
 	mux.Handle("DELETE /api/v1/comments/{commentId}", auth.RequireAuth(tokenManager, http.HandlerFunc(commentsHandler.Delete)))
 	mux.Handle("PUT /api/v1/places/{placeId}/rating", auth.RequireAuth(tokenManager, http.HandlerFunc(ratingsHandler.Put)))
 	mux.Handle("DELETE /api/v1/places/{placeId}/rating", auth.RequireAuth(tokenManager, http.HandlerFunc(ratingsHandler.Delete)))
+	mux.Handle("POST /api/v1/places/{placeId}/reports", auth.RequireAuth(tokenManager, http.HandlerFunc(reportsHandler.CreatePlaceReport)))
+	mux.Handle("POST /api/v1/comments/{commentId}/reports", auth.RequireAuth(tokenManager, http.HandlerFunc(reportsHandler.CreateCommentReport)))
 	mux.Handle("GET /api/v1/users/me/places", auth.RequireAuth(tokenManager, http.HandlerFunc(placesHandler.ListMine)))
 	mux.Handle("GET /media/{filename}", storage.MediaHandler(cfg.MediaDir))
 

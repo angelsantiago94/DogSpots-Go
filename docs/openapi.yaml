@@ -148,7 +148,12 @@ paths:
     delete:
       tags: [Users]
       summary: Eliminar cuenta y sus datos
-      description: Requerido por Google Play para apps con cuentas. Elimina o anonimiza lugares, fotos y reseñas del usuario.
+      description: |
+        Requerido por Google Play para apps con cuentas. Elimina los lugares del usuario junto con sus
+        fotos y los comentarios, valoraciones y denuncias asociados a esos lugares. Los comentarios del
+        usuario en lugares de terceros se conservan anonimizados como "comentario eliminado". Se borran
+        sus valoraciones, denuncias y fotos restantes, y se revocan todas sus sesiones. La cuenta queda
+        anonimizada y no puede volver a iniciar sesión. Repetir la petición es idempotente.
       responses:
         '204': { description: Cuenta eliminada }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -502,7 +507,10 @@ paths:
     post:
       tags: [Reports]
       summary: Denunciar un lugar
-      description: Mecanismo de denuncia de contenido de usuario, exigido por las tiendas de aplicaciones.
+      description: |
+        Mecanismo de denuncia de contenido de usuario, exigido por las tiendas de aplicaciones.
+        Una segunda denuncia del mismo usuario sobre el mismo lugar no crea un registro nuevo y
+        responde 204 igualmente.
       parameters:
         - { $ref: '#/components/parameters/PlaceId' }
       requestBody:
@@ -519,6 +527,9 @@ paths:
     post:
       tags: [Reports]
       summary: Denunciar un comentario
+      description: |
+        Una segunda denuncia del mismo usuario sobre el mismo comentario no crea un registro nuevo y
+        responde 204 igualmente.
       parameters:
         - { $ref: '#/components/parameters/CommentId' }
       requestBody:
