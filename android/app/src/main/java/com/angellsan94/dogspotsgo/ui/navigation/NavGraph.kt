@@ -1,6 +1,7 @@
 package com.angellsan94.dogspotsgo.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -73,9 +74,6 @@ fun NavGraph(authViewModel: AuthViewModel) {
                         popUpTo(Screen.Main.route) { inclusive = true }
                     }
                 },
-                onNavigateToDetail = { placeId ->
-                    navController.navigate(Screen.PlaceDetail.createRoute(placeId))
-                },
                 onNavigateToCreate = {
                     navController.navigate(Screen.CreatePlace.createRoute())
                 },
@@ -93,8 +91,11 @@ fun NavGraph(authViewModel: AuthViewModel) {
         composable(
             route = Screen.PlaceDetail.route,
             arguments = listOf(navArgument("placeId") { type = NavType.StringType })
-        ) {
+        ) { entry ->
             val viewModel: PlaceDetailViewModel = hiltViewModel()
+            LaunchedEffect(entry) {
+                viewModel.loadPlaceDetailAndComments(checkNotNull(entry.arguments?.getString("placeId")))
+            }
             PlaceDetailScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }

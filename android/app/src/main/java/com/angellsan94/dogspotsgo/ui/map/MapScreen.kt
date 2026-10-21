@@ -13,6 +13,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.angellsan94.dogspotsgo.ui.place.PlaceDetailScreen
+import com.angellsan94.dogspotsgo.ui.place.PlaceDetailViewModel
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -25,8 +27,8 @@ import org.maplibre.android.maps.MapView
 @Composable
 fun MapScreen(
     viewModel: MapViewModel,
+    placeDetailViewModel: PlaceDetailViewModel,
     onLogout: () -> Unit,
-    onNavigateToDetail: (String) -> Unit,
     onNavigateToCreate: () -> Unit,
     onNavigateToCreateAt: (Double, Double) -> Unit,
     onNavigateToMyPlaces: () -> Unit,
@@ -34,8 +36,10 @@ fun MapScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val placeDetailState by placeDetailViewModel.uiState.collectAsState()
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var createPlaceCoordinates by remember { mutableStateOf<LatLng?>(null) }
+    var showPlaceDetail by remember { mutableStateOf(false) }
 
     remember {
         MapLibre.getInstance(context)
@@ -209,7 +213,23 @@ fun MapScreen(
 
             if (uiState.selectedPlace != null) {
                 val place = uiState.selectedPlace!!
-                ModalBottomSheet(
+                if (showPlaceDetail) {
+                    ModalBottomSheet(
+                        onDismissRequest = {
+                            showPlaceDetail = false
+                            viewModel.selectPlace(null)
+                        },
+                        sheetState = sheetState
+                    ) {
+                        PlaceDetailScreen(
+                            viewModel = placeDetailViewModel,
+                            onBack = {
+                                showPlaceDetail = false
+                                viewModel.selectPlace(null)
+                            }
+                        )
+                    }
+                } else ModalBottomSheet(
                     onDismissRequest = { viewModel.selectPlace(null) },
                     sheetState = sheetState
                 ) {
@@ -231,7 +251,10 @@ fun MapScreen(
                         }
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = { onNavigateToDetail(place.id) },
+                            onClick = {
+                                placeDetailViewModel.loadPlaceDetailAndComments(place.id)
+                                showPlaceDetail = true
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Ver Detalle")

@@ -1,6 +1,5 @@
 package com.angellsan94.dogspotsgo.ui.place
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.angellsan94.dogspotsgo.domain.model.Comment
@@ -34,20 +33,21 @@ sealed interface PlaceDetailUiState {
 class PlaceDetailViewModel @Inject constructor(
     private val placeRepository: PlaceRepository,
     private val commentRepository: CommentRepository,
-    private val userRepository: UserRepository,
-    savedStateHandle: SavedStateHandle
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
-    private val placeId: String = checkNotNull(savedStateHandle["placeId"])
+    private var placeId: String = ""
 
     private val _uiState = MutableStateFlow<PlaceDetailUiState>(PlaceDetailUiState.Loading)
     val uiState: StateFlow<PlaceDetailUiState> = _uiState.asStateFlow()
 
-    init {
+    fun loadPlaceDetailAndComments(placeId: String) {
+        this.placeId = placeId
         loadPlaceDetailAndComments()
     }
 
     fun loadPlaceDetailAndComments() {
+        if (placeId.isBlank()) return
         viewModelScope.launch {
             _uiState.update { PlaceDetailUiState.Loading }
             try {
