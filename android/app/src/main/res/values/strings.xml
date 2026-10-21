@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">DogSpots Go</string>
+    <string name="login">Iniciar Sesión</string>
+    <string name="register">Registrarse</string>
+    <string name="profile">Perfil</string>
+    <string name="my_places">Mis Lugares</string>
+    <string name="create_place">Crear Lugar</string>
+    <string name="delete_account">Eliminar Cuenta</string>
+</resources>

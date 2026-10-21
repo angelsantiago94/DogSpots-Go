@@ -21,9 +21,9 @@ services:
     volumes:
       - db_data:/data/db        # fichero SQLite (+ WAL)
       - media_data:/data/media  # fotos y miniaturas
-    # Solo en loopback: el emulador Android accede por http://10.0.2.2:8080
+    # Exponer en todas las interfaces para permitir conectar móviles físicos por Wi-Fi
     ports:
-      - "127.0.0.1:8080:8080"
+      - "0.0.0.0:8080:8080"
     healthcheck:
       # Requiere wget en la imagen final (alpine/busybox lo incluye)
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/healthz"]
