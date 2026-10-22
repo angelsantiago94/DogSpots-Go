@@ -16,7 +16,10 @@ import (
 var ErrFileTooLarge = fmt.Errorf("file too large")
 var ErrUnsupportedFormat = fmt.Errorf("unsupported image format")
 
-const maxImagePixels = 40_000_000
+const maxImagePixels = 16_000_000
+
+// Dos decodificaciones simultáneas como máximo para acotar la memoria.
+var processSlots = make(chan struct{}, 2)
 
 // ImageInfo contiene metadatos de la imagen procesada.
 type ImageInfo struct {
@@ -28,6 +31,9 @@ type ImageInfo struct {
 // ProcessImage valida la imagen, elimina EXIF, la redimensiona y genera una miniatura.
 // Devuelve el buffer con la imagen original procesada, el buffer con la miniatura, y la info.
 func ProcessImage(input io.Reader, maxSize int) (original []byte, thumb []byte, info ImageInfo, err error) {
+	processSlots <- struct{}{}
+	defer func() { <-processSlots }()
+
 	data, err := io.ReadAll(io.LimitReader(input, int64(maxSize)+1))
 	if err != nil {
 		return nil, nil, ImageInfo{}, fmt.Errorf("failed to read input: %w", err)

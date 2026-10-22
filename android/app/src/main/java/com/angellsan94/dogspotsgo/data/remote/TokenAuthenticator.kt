@@ -21,13 +21,27 @@ class TokenAuthenticator @Inject constructor(
         if (responseCount(response) >= 3) {
             return null
         }
-
-        val refreshToken = runBlocking {
-            tokenDataSource.refreshTokenFlow.first()
-        } ?: return null
+        val failedToken = response.request
+            .header("Authorization")
+            ?.removePrefix("Bearer ")
+            ?.trim()
 
         synchronized(mutex) {
-            try {
+            val currentAccessToken = runBlocking {
+                tokenDataSource.accessTokenFlow.first()
+            }
+            if (!currentAccessToken.isNullOrBlank() && currentAccessToken != failedToken) {
+                // Otro request ya renovó el token mientras esperábamos el lock.
+                return response.request.newBuilder()
+                    .header("Authorization", "Bearer $currentAccessToken")
+                    .build()
+            }
+
+            val refreshToken = runBlocking {
+                tokenDataSource.refreshTokenFlow.first()
+            } ?: return null
+
+            return try {
                 val api = authApiLazy.get()
                 val responseTokenPair = runBlocking {
                     api.refresh(RefreshRequestDto(refreshToken))
@@ -35,14 +49,14 @@ class TokenAuthenticator @Inject constructor(
                 runBlocking {
                     tokenDataSource.saveTokens(responseTokenPair.access_token, responseTokenPair.refresh_token)
                 }
-                return response.request.newBuilder()
+                response.request.newBuilder()
                     .header("Authorization", "Bearer ${responseTokenPair.access_token}")
                     .build()
             } catch (e: Exception) {
                 runBlocking {
                     tokenDataSource.clearTokens()
                 }
-                return null
+                null
             }
         }
     }

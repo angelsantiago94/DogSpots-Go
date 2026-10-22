@@ -17,6 +17,7 @@ type UserRepository interface {
 
 	// Métodos de Token
 	CreateRefreshToken(ctx context.Context, token RefreshTokenParams) (RefreshToken, error)
+	RotateRefreshToken(ctx context.Context, id uuid.UUID, token RefreshTokenParams) (bool, error)
 	GetRefreshToken(ctx context.Context, id uuid.UUID) (RefreshToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	ListRefreshTokensByFamily(ctx context.Context, familyID uuid.UUID) ([]RefreshToken, error)

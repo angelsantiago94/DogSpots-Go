@@ -26,15 +26,19 @@ type authService struct {
 	tokenManager *TokenManager
 	accessTTL    time.Duration
 	refreshTTL   time.Duration
+	dummyHash    string
 }
 
 func NewAuthService(repo UserRepository, hasher PasswordHasher, tm *TokenManager, accessTTL, refreshTTL time.Duration) AuthService {
+	// Hash desechable para igualar el coste de login cuando el email no existe.
+	dummyHash, _ := hasher.HashPassword("dummy-password-for-timing")
 	return &authService{
 		repo:         repo,
 		hasher:       hasher,
 		tokenManager: tm,
 		accessTTL:    accessTTL,
 		refreshTTL:   refreshTTL,
+		dummyHash:    dummyHash,
 	}
 }
 
@@ -92,6 +96,8 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 func (s *authService) Login(ctx context.Context, req LoginRequest) (*AuthResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, strings.TrimSpace(req.Email))
 	if err != nil {
+		// Mismo coste que un login válido para no filtrar qué emails existen.
+		_ = s.hasher.VerifyPassword(req.Password, s.dummyHash)
 		return nil, ErrInvalidCredentials
 	}
 
@@ -122,10 +128,6 @@ func (s *authService) Refresh(ctx context.Context, req RefreshRequest) (*AuthRes
 		return nil, ErrTokenExpired
 	}
 
-	if err := s.repo.RevokeRefreshToken(ctx, stored.ID); err != nil {
-		return nil, fmt.Errorf("revoking old refresh token: %w", err)
-	}
-
 	accessToken, err := s.tokenManager.GenerateAccessToken(stored.UserID)
 	if err != nil {
 		return nil, err
@@ -139,7 +141,7 @@ func (s *authService) Refresh(ctx context.Context, req RefreshRequest) (*AuthRes
 	newTokenID := uuid.New()
 	newExpiresAt := time.Now().UTC().Add(s.refreshTTL)
 
-	_, err = s.repo.CreateRefreshToken(ctx, RefreshTokenParams{
+	rotated, err := s.repo.RotateRefreshToken(ctx, stored.ID, RefreshTokenParams{
 		ID:        newTokenID,
 		UserID:    stored.UserID,
 		TokenHash: newRefreshTokenHash,
@@ -148,7 +150,14 @@ func (s *authService) Refresh(ctx context.Context, req RefreshRequest) (*AuthRes
 		CreatedAt: time.Now().UTC(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("creating rotated refresh token: %w", err)
+		return nil, fmt.Errorf("rotating refresh token: %w", err)
+	}
+	if !rotated {
+		// Otro request rotó este token primero: se trata como reutilización.
+		if revokeErr := s.repo.RevokeAllTokensByFamily(ctx, stored.FamilyID); revokeErr != nil {
+			return nil, revokeErr
+		}
+		return nil, ErrTokenRevoked
 	}
 
 	return &AuthResponse{

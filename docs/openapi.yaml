@@ -170,7 +170,7 @@ paths:
           description: Perfil público
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/PublicUser' }
+              schema: { $ref: '#/components/schemas/PublicProfile' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ───────────── PLACES ─────────────
@@ -709,6 +709,12 @@ components:
         display_name: { type: string }
         avatar_url: { type: string, nullable: true }
         places_count: { type: integer }
+    PublicProfile:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
     UpdateUserRequest:
       type: object
       properties:

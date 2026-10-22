@@ -157,7 +157,8 @@ func (h *Handler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeUserResponse(w, user)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(PublicUserResponse{ID: user.ID, Name: user.Name})
 }
 
 func decodeJSON(r *http.Request, target any) error {

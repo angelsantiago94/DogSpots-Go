@@ -53,13 +53,10 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: TokenAuthenticator
     ): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .authenticator(tokenAuthenticator)
-            .addInterceptor(logging)
+            .addInterceptor(loggingInterceptor())
             .build()
     }
 
@@ -76,8 +73,17 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
-        return retrofit.create(AuthApiService::class.java)
+    fun provideAuthApiService(json: Json): AuthApiService {
+        // Cliente propio sin authenticator: el refresh nunca se reintenta a sí mismo.
+        val client = OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor())
+            .build()
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(AuthApiService::class.java)
     }
 
     @Provides
@@ -96,5 +102,13 @@ object NetworkModule {
     @Singleton
     fun provideUsersApiService(retrofit: Retrofit): UsersApiService {
         return retrofit.create(UsersApiService::class.java)
+    }
+
+    private fun loggingInterceptor() = HttpLoggingInterceptor().apply {
+        level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BODY
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
     }
 }

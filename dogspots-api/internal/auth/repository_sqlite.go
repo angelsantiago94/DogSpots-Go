@@ -70,6 +70,42 @@ func (r *SQLiteRepository) CreateRefreshToken(ctx context.Context, token Refresh
 	return r.GetRefreshToken(ctx, token.ID)
 }
 
+func (r *SQLiteRepository) RotateRefreshToken(ctx context.Context, id uuid.UUID, token RefreshTokenParams) (bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.ExecContext(ctx, `UPDATE refresh_tokens SET is_revoked = 1 WHERE id = ? AND is_revoked = 0`, id.String())
+	if err != nil {
+		return false, err
+	}
+	rotated, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if rotated == 0 {
+		return false, tx.Commit()
+	}
+
+	if _, err := tx.ExecContext(ctx, `INSERT INTO refresh_tokens (id, user_id, token_hash, family_id, expires_at, created_at, is_revoked)
+	VALUES (?, ?, ?, ?, ?, ?, 0)`,
+		token.ID.String(),
+		token.UserID.String(),
+		token.TokenHash,
+		token.FamilyID.String(),
+		token.ExpiresAt.UTC().Format(time.RFC3339Nano),
+		token.CreatedAt.UTC().Format(time.RFC3339Nano),
+	); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (r *SQLiteRepository) GetRefreshToken(ctx context.Context, id uuid.UUID) (RefreshToken, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT id, user_id, token_hash, family_id, expires_at, created_at, is_revoked FROM refresh_tokens WHERE id = ? LIMIT 1`, id.String())
 	return scanRefreshToken(row)
