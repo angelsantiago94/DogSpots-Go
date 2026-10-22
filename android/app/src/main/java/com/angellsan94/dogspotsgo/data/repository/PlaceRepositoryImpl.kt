@@ -67,6 +67,7 @@ class PlaceRepositoryImpl @Inject constructor(
                     width = it.width,
                     height = it.height,
                     position = it.position,
+                    uploadedBy = it.uploaded_by,
                     createdAt = it.created_at
                 )
             },
@@ -115,6 +116,7 @@ class PlaceRepositoryImpl @Inject constructor(
                     width = it.width,
                     height = it.height,
                     position = it.position,
+                    uploadedBy = it.uploaded_by,
                     createdAt = it.created_at
                 )
             },
@@ -164,6 +166,7 @@ class PlaceRepositoryImpl @Inject constructor(
                     width = it.width,
                     height = it.height,
                     position = it.position,
+                    uploadedBy = it.uploaded_by,
                     createdAt = it.created_at
                 )
             },
@@ -197,12 +200,18 @@ class PlaceRepositoryImpl @Inject constructor(
             width = dto.width,
             height = dto.height,
             position = dto.position,
+            uploadedBy = dto.uploaded_by,
             createdAt = dto.created_at
         )
     }
 
     override suspend fun deletePlace(placeId: String) = handleApiCall {
         placesApiService.deletePlace(placeId)
+        Unit
+    }
+
+    override suspend fun deletePhoto(placeId: String, photoId: String) = handleApiCall {
+        placesApiService.deletePhoto(placeId, photoId)
         Unit
     }
 

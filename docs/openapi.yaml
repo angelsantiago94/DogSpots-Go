@@ -304,7 +304,8 @@ paths:
       tags: [Photos]
       summary: Subir foto a un lugar
       description: |
-        `multipart/form-data`. Máx. 5 MB, formatos JPEG/PNG/WebP, máx. 8 fotos por lugar.
+        `multipart/form-data`. Máx. 10 MB, formatos JPEG/PNG/WebP, máx. 30 fotos por lugar.
+        Cualquier usuario autenticado puede subir fotos a un lugar.
         El servidor valida el tipo real del fichero (no solo la extensión), elimina metadatos EXIF
         (incluida la geolocalización) y genera miniaturas.
       requestBody:
@@ -324,7 +325,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Photo' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415':

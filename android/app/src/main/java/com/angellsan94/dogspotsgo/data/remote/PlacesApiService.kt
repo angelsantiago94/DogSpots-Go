@@ -61,5 +61,5 @@ interface PlacesApiService {
     suspend fun deletePhoto(
         @Path("placeId") placeId: String,
         @Path("photoId") photoId: String
-    ): Response<Unit>
+    )
 }

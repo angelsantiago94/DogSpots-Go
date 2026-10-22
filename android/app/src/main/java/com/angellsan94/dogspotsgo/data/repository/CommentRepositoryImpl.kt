@@ -20,7 +20,7 @@ class CommentRepositoryImpl @Inject constructor(
             Comment(
                 id = dto.id,
                 placeId = dto.place_id,
-                userId = dto.user_id,
+                userId = dto.author.id,
                 authorName = dto.author.display_name,
                 authorId = dto.author.id,
                 parentId = dto.parent_id,
@@ -40,7 +40,7 @@ class CommentRepositoryImpl @Inject constructor(
             Comment(
                 id = dto.id,
                 placeId = dto.place_id,
-                userId = dto.user_id,
+                userId = dto.author.id,
                 authorName = dto.author.display_name,
                 authorId = dto.author.id,
                 parentId = dto.parent_id,
@@ -60,7 +60,7 @@ class CommentRepositoryImpl @Inject constructor(
         return Comment(
             id = dto.id,
             placeId = dto.place_id,
-            userId = dto.user_id,
+            userId = dto.author.id,
             authorName = dto.author.display_name,
             authorId = dto.author.id,
             parentId = dto.parent_id,
@@ -79,7 +79,7 @@ class CommentRepositoryImpl @Inject constructor(
         return Comment(
             id = dto.id,
             placeId = dto.place_id,
-            userId = dto.user_id,
+            userId = dto.author.id,
             authorName = dto.author.display_name,
             authorId = dto.author.id,
             parentId = dto.parent_id,

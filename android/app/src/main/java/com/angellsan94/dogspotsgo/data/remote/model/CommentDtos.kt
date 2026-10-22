@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
 data class CommentDto(
     val id: String,
     val place_id: String,
-    val user_id: String,
     val author: PlaceAuthorDto,
     val parent_id: String? = null,
     val reply_to: PlaceAuthorDto? = null,

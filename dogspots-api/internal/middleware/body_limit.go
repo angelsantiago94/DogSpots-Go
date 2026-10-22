@@ -6,7 +6,7 @@ import (
 	apierrors "github.com/angellsan94/dogspots-api/internal/errors"
 )
 
-const DefaultMaxBodySize int64 = 6 << 20
+const DefaultMaxBodySize int64 = 11 << 20
 
 func MaxBodySize(limit int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

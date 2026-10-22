@@ -135,7 +135,7 @@ func main() {
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      app,
-		ReadTimeout:  10 * time.Second,
+		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}

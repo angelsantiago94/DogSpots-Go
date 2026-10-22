@@ -118,7 +118,7 @@ func TestUploadStoresProcessedImageForPlaceOwner(t *testing.T) {
 	}
 }
 
-func TestUploadRejectsNonOwner(t *testing.T) {
+func TestUploadAllowsNonOwner(t *testing.T) {
 	userID, placeID := uuid.New(), uuid.New()
 	repository := &handlerPhotoRepository{}
 	fileStorage := &handlerStorage{}
@@ -128,13 +128,26 @@ func TestUploadRejectsNonOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(""))
+	var body bytes.Buffer
+	multipartWriter := multipart.NewWriter(&body)
+	file, err := multipartWriter.CreateFormFile("file", "uploaded.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write(makeJPEG(t)); err != nil {
+		t.Fatal(err)
+	}
+	if err := multipartWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/places/"+placeID.String()+"/photos", &body)
+	request.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.SetPathValue("placeId", placeID.String())
 	response := httptest.NewRecorder()
 	auth.RequireAuth(tokenManager, http.HandlerFunc(handler.Upload)).ServeHTTP(response, request)
-	if response.Code != http.StatusForbidden || len(fileStorage.saved) != 0 {
-		t.Fatalf("status = %d, saved files = %v", response.Code, fileStorage.saved)
+	if response.Code != http.StatusCreated || repository.created.UploadedBy != userID {
+		t.Fatalf("status = %d, response = %s", response.Code, response.Body.String())
 	}
 }
 

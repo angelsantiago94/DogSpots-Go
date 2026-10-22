@@ -8,5 +8,6 @@ data class Photo(
     val width: Int,
     val height: Int,
     val position: Int,
+    val uploadedBy: String,
     val createdAt: String
 )

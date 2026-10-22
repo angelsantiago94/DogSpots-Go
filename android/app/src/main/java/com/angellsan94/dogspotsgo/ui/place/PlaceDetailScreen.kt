@@ -1,5 +1,6 @@
 package com.angellsan94.dogspotsgo.ui.place
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -14,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,9 +25,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.angellsan94.dogspotsgo.data.image.compressToJpeg
 import com.angellsan94.dogspotsgo.domain.model.Comment
 import com.angellsan94.dogspotsgo.domain.model.Photo
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +46,7 @@ fun PlaceDetailScreen(
     var photoViewerIndex by remember { mutableIntStateOf(0) }
     var showPhotoViewer by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
@@ -51,6 +60,31 @@ fun PlaceDetailScreen(
             } catch (_: Exception) {
                 viewModel.showPhotoUploadError("No se pudo leer la imagen seleccionada.")
             }
+        }
+    }
+
+    var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val uri = cameraUri ?: return@rememberLauncherForActivityResult
+        try {
+            if (success) {
+                val image = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (image == null) {
+                    viewModel.showPhotoUploadError("No se pudo leer la imagen de la cámara.")
+                } else {
+                    coroutineScope.launch {
+                        val compressed = withContext(Dispatchers.Default) {
+                            runCatching { compressToJpeg(image) }.getOrDefault(image)
+                        }
+                        viewModel.uploadPhoto(compressed, "photo.jpg", "image/jpeg")
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            viewModel.showPhotoUploadError("No se pudo leer la imagen de la cámara.")
+        } finally {
+            context.contentResolver.delete(uri, null, null)
+            cameraUri = null
         }
     }
 
@@ -185,15 +219,44 @@ fun PlaceDetailScreen(
                                 Text("${state.comments.size} reseñas")
                             }
                             Spacer(modifier = Modifier.height(18.dp))
-                            if (state.isOwner) {
-                                Button(
-                                    onClick = { photoPicker.launch("image/*") },
-                                    enabled = !state.isUploadingPhoto && place.photos.size < 8,
-                                    modifier = Modifier.fillMaxWidth()
+                            if (state.currentUserId != null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    Button(
+                                        onClick = { photoPicker.launch("image/*") },
+                                        enabled = !state.isUploadingPhoto && place.photos.size < MAX_PLACE_PHOTOS,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Galería (${place.photos.size}/$MAX_PLACE_PHOTOS)")
+                                    }
+                                    Button(
+                                        onClick = {
+                                            val imagesDir = File(context.cacheDir, "images").apply { mkdirs() }
+                                            val uri = FileProvider.getUriForFile(
+                                                context,
+                                                "${context.packageName}.fileprovider",
+                                                File.createTempFile("photo_", ".jpg", imagesDir)
+                                            )
+                                            cameraUri = uri
+                                            try {
+                                                cameraLauncher.launch(uri)
+                                            } catch (_: Exception) {
+                                                cameraUri = null
+                                                viewModel.showPhotoUploadError("No hay una aplicación de cámara disponible.")
+                                            }
+                                        },
+                                        enabled = !state.isUploadingPhoto && place.photos.size < MAX_PLACE_PHOTOS,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Hacer foto")
+                                    }
+                                }
+                                if (place.photos.size >= MAX_PLACE_PHOTOS) {
                                     Text(
-                                        if (place.photos.size >= 8) "Límite de 8 fotos alcanzado"
-                                        else "Añadir fotos (${place.photos.size}/8)"
+                                        "Límite de $MAX_PLACE_PHOTOS fotos alcanzado",
+                                        color = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
@@ -314,10 +377,16 @@ fun PlaceDetailScreen(
             }
 
             val photos = (uiState as? PlaceDetailUiState.Success)?.place?.photos.orEmpty()
-            if (showPhotoViewer && photos.isNotEmpty()) {
+            val detailState = uiState as? PlaceDetailUiState.Success
+            if (showPhotoViewer && photos.isNotEmpty() && detailState != null) {
                 PlacePhotoViewer(
                     photos = photos,
                     initialIndex = photoViewerIndex,
+                    canDelete = { it.uploadedBy == detailState.currentUserId || detailState.isOwner },
+                    onDelete = { photo ->
+                        viewModel.deletePhoto(photo.id)
+                        showPhotoViewer = false
+                    },
                     onDismiss = { showPhotoViewer = false }
                 )
             }
@@ -330,6 +399,8 @@ fun PlaceDetailScreen(
 private fun PlacePhotoViewer(
     photos: List<Photo>,
     initialIndex: Int,
+    canDelete: (Photo) -> Boolean,
+    onDelete: (Photo) -> Unit,
     onDismiss: () -> Unit
 ) {
     val pagerState = rememberPagerState(
@@ -380,6 +451,17 @@ private fun PlacePhotoViewer(
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
+            }
+
+            if (canDelete(photos[pagerState.currentPage])) {
+                TextButton(
+                    onClick = { onDelete(photos[pagerState.currentPage]) },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 24.dp, end = 16.dp)
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
