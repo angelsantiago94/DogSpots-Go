@@ -2,6 +2,8 @@ package com.angellsan94.dogspotsgo.data.image
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
 import android.media.ExifInterface
 import java.io.ByteArrayInputStream
@@ -10,17 +12,17 @@ import kotlin.math.max
 
 private const val MAX_DIMENSION = 2048
 private const val JPEG_QUALITY = 85
-private const val COMPRESS_THRESHOLD = 1 shl 20
 
-// Reduce la foto de cámara a 2048px y JPEG de calidad 85 antes de subirla.
+// Reduce la imagen a 2048px y JPEG de calidad 85 antes de subirla.
 // Si no se puede decodificar, devuelve los bytes originales para que el servidor valide.
 @Suppress("DEPRECATION")
 fun compressToJpeg(bytes: ByteArray): ByteArray {
-    if (bytes.size <= COMPRESS_THRESHOLD) return bytes
-
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return bytes
+    val sourceHasAlpha = bounds.outMimeType == "image/png" ||
+        bounds.outMimeType == "image/webp" ||
+        bounds.outMimeType == "image/gif"
 
     val options = BitmapFactory.Options().apply {
         inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, MAX_DIMENSION)
@@ -45,10 +47,22 @@ fun compressToJpeg(bytes: ByteArray): ByteArray {
     }
 
     val oriented = applyOrientation(scaled, orientation)
+    // JPEG no soporta transparencia: PNG/WebP con alfa se aplanan sobre blanco.
+    val flattened = if (sourceHasAlpha && oriented.hasAlpha) {
+        Bitmap.createBitmap(oriented.width, oriented.height, Bitmap.Config.ARGB_8888).also { bitmap ->
+            Canvas(bitmap).apply {
+                drawColor(Color.WHITE)
+                drawBitmap(oriented, 0f, 0f, null)
+            }
+        }
+    } else {
+        oriented
+    }
     val output = ByteArrayOutputStream()
     try {
-        oriented.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+        flattened.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
     } finally {
+        if (flattened !== oriented) flattened.recycle()
         if (oriented !== scaled) oriented.recycle()
         if (scaled !== decoded) scaled.recycle()
         decoded.recycle()

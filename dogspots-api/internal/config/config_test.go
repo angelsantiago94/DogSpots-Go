@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestLoadReadsComposeStoragePaths(t *testing.T) {
@@ -58,5 +59,49 @@ func TestLoadArgon2DefaultsAndValidation(t *testing.T) {
 	t.Setenv("ARGON2_MEMORY_KIB", "not-a-number")
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() should reject invalid Argon2 memory")
+	}
+}
+
+func TestLoadTokenTTLDefaults(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	for _, key := range []string{"ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL"} {
+		value, exists := os.LookupEnv(key)
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if exists {
+				_ = os.Setenv(key, value)
+			} else {
+				_ = os.Unsetenv(key)
+			}
+		})
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.AccessTokenTTL != 15*time.Minute || cfg.RefreshTokenTTL != 720*time.Hour {
+		t.Errorf("token TTLs = %s/%s, want 15m/720h", cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	}
+}
+
+func TestLoadTokenTTLsFromEnv(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	t.Setenv("ACCESS_TOKEN_TTL", "30m")
+	t.Setenv("REFRESH_TOKEN_TTL", "48h")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.AccessTokenTTL != 30*time.Minute || cfg.RefreshTokenTTL != 48*time.Hour {
+		t.Errorf("token TTLs = %s/%s, want 30m/48h", cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	}
+
+	t.Setenv("REFRESH_TOKEN_TTL", "not-a-duration")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() should reject invalid REFRESH_TOKEN_TTL")
 	}
 }

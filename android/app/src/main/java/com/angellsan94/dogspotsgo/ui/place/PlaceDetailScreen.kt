@@ -50,12 +50,16 @@ fun PlaceDetailScreen(
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
-                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
                 val image = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 if (image == null) {
                     viewModel.showPhotoUploadError("No se pudo leer la imagen seleccionada.")
                 } else {
-                    viewModel.uploadPhoto(image, "photo", mimeType)
+                    coroutineScope.launch {
+                        val compressed = withContext(Dispatchers.Default) {
+                            runCatching { compressToJpeg(image) }.getOrDefault(image)
+                        }
+                        viewModel.uploadPhoto(compressed, "photo.jpg", "image/jpeg")
+                    }
                 }
             } catch (_: Exception) {
                 viewModel.showPhotoUploadError("No se pudo leer la imagen seleccionada.")

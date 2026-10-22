@@ -101,8 +101,9 @@ paths:
           description: Nuevo par de tokens
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/TokenPair' }
+              schema: { $ref: '#/components/schemas/AuthResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /auth/logout:
     post:
@@ -657,11 +658,11 @@ components:
     # ── Auth ──
     RegisterRequest:
       type: object
-      required: [email, password, display_name]
+      required: [email, password, name]
       properties:
         email: { type: string, format: email }
         password: { type: string, format: password, minLength: 10, maxLength: 128 }
-        display_name: { type: string, minLength: 2, maxLength: 40 }
+        name: { type: string }
     LoginRequest:
       type: object
       required: [email, password]
@@ -673,41 +674,32 @@ components:
       required: [refresh_token]
       properties:
         refresh_token: { type: string }
-    TokenPair:
+    AuthResponse:
       type: object
-      required: [access_token, refresh_token, expires_in]
+      required: [access_token, refresh_token, user_id, expires_in]
       properties:
         access_token: { type: string }
         refresh_token: { type: string }
-        token_type: { type: string, example: Bearer }
+        user_id: { type: string, format: uuid }
         expires_in:
           type: integer
           description: Segundos de vida del access token
           example: 900
-    AuthResponse:
-      type: object
-      required: [user, tokens]
-      properties:
-        user: { $ref: '#/components/schemas/User' }
-        tokens: { $ref: '#/components/schemas/TokenPair' }
 
     # ── Users ──
     User:
       type: object
-      required: [id, email, display_name, created_at]
+      required: [id, email, name]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
-        display_name: { type: string }
-        avatar_url: { type: string, nullable: true }
-        created_at: { type: string, format: date-time }
+        name: { type: string }
     PublicUser:
       type: object
       required: [id, display_name]
       properties:
         id: { type: string, format: uuid }
         display_name: { type: string }
-        avatar_url: { type: string, nullable: true }
         places_count: { type: integer }
     PublicProfile:
       type: object
@@ -717,8 +709,9 @@ components:
         name: { type: string }
     UpdateUserRequest:
       type: object
+      required: [name]
       properties:
-        display_name: { type: string, minLength: 2, maxLength: 40 }
+        name: { type: string }
 
     # ── Places ──
     PlaceCategory:

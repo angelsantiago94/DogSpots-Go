@@ -288,6 +288,10 @@ func (r *SQLiteRepository) Delete(ctx context.Context, id, authorID uuid.UUID) e
 	if storedAuthor != authorID {
 		return ErrCommentForbidden
 	}
+	if comment.Deleted {
+		// Borrar dos veces no debe volver a decrementar los contadores.
+		return ErrCommentNotFound
+	}
 	var replyCount int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM comments WHERE parent_id = ?`, id.String()).Scan(&replyCount); err != nil {
 		return fmt.Errorf("count comment replies: %w", err)

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -77,5 +78,22 @@ func TestRotateRefreshTokenAllowsOnlyOneRotation(t *testing.T) {
 	}
 	if rotations != 1 {
 		t.Fatalf("successful rotations = %d, want 1", rotations)
+	}
+}
+
+func TestCreateUserMapsDuplicateEmail(t *testing.T) {
+	repo := newAuthTestRepository(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	params := UserCreateParams{
+		ID: uuid.New(), Email: "duplicate@example.test", PasswordHash: "hash", Name: "Duplicate",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if _, err := repo.CreateUser(ctx, params); err != nil {
+		t.Fatal(err)
+	}
+	params.ID = uuid.New()
+	if _, err := repo.CreateUser(ctx, params); !errors.Is(err, ErrUserAlreadyExists) {
+		t.Fatalf("duplicate CreateUser() error = %v, want ErrUserAlreadyExists", err)
 	}
 }

@@ -3,9 +3,12 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 type SQLiteRepository struct {
@@ -27,6 +30,11 @@ func (r *SQLiteRepository) CreateUser(ctx context.Context, user UserCreateParams
 		user.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	)
 	if err != nil {
+		// Un INSERT concurrente con el mismo email choca con el UNIQUE: se traduce a 409.
+		var sqliteErr *sqlite.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
+			return User{}, ErrUserAlreadyExists
+		}
 		return User{}, err
 	}
 	return r.GetUserByID(ctx, user.ID)

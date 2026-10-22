@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,7 +42,7 @@ func main() {
 		slog.String("db_path", cfg.DBPath),
 	)
 
-	db, err := sql.Open("sqlite", cfg.DBPath)
+	db, err := sql.Open("sqlite", sqliteDSN(cfg.DBPath))
 	if err != nil {
 		logger.Error("error al abrir la base de datos", slog.Any("error", err))
 		os.Exit(1)
@@ -51,12 +52,15 @@ func main() {
 		logger.Error("error al conectar con la base de datos", slog.Any("error", err))
 		os.Exit(1)
 	}
+	// Una sola conexión durante las migraciones; después se permite concurrencia.
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	if err := dbmigrations.Up(context.Background(), db); err != nil {
 		logger.Error("error al ejecutar migraciones", slog.Any("error", err))
 		os.Exit(1)
 	}
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(4)
 	if cfg.AppEnv == "development" {
 		if err := places.SeedDevelopmentData(context.Background(), db); err != nil {
 			logger.Error("error al cargar datos de desarrollo", slog.Any("error", err))
@@ -70,8 +74,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	tokenManager := auth.NewTokenManager(cfg.JWTSecret, 15*time.Minute)
-	authService := auth.NewAuthService(repo, auth.NewArgon2HasherWithParams(cfg.Argon2Params), tokenManager, 15*time.Minute, 7*24*time.Hour)
+	tokenManager := auth.NewTokenManager(cfg.JWTSecret, cfg.AccessTokenTTL)
+	authService := auth.NewAuthService(repo, auth.NewArgon2HasherWithParams(cfg.Argon2Params), tokenManager, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	handler := auth.NewHandler(authService, repo)
 	placesRepo, err := places.NewSQLiteRepository(db)
 	if err != nil {
@@ -163,6 +167,15 @@ func main() {
 	}
 
 	logger.Info("servidor apagado correctamente")
+}
+
+// sqliteDSN fija PRAGMAs por conexión para que todas las del pool las hereden.
+func sqliteDSN(path string) string {
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return path + separator + "_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
 }
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
