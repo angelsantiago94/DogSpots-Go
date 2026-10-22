@@ -19,18 +19,20 @@ type rateLimitEntry struct {
 }
 
 type rateLimiter struct {
-	mu        sync.Mutex
-	entries   map[string]rateLimitEntry
-	limit     int
-	interval  time.Duration
-	lastSweep time.Time
+	mu         sync.Mutex
+	entries    map[string]rateLimitEntry
+	limit      int
+	interval   time.Duration
+	trustProxy bool
+	lastSweep  time.Time
 }
 
-func NewRateLimiter(limit int, interval time.Duration) func(http.Handler) http.Handler {
+func NewRateLimiter(limit int, interval time.Duration, trustProxy bool) func(http.Handler) http.Handler {
 	limiter := &rateLimiter{
-		entries:  make(map[string]rateLimitEntry),
-		limit:    limit,
-		interval: interval,
+		entries:    make(map[string]rateLimitEntry),
+		limit:      limit,
+		interval:   interval,
+		trustProxy: trustProxy,
 	}
 	return limiter.Middleware
 }
@@ -43,7 +45,7 @@ func (l *rateLimiter) Middleware(next http.Handler) http.Handler {
 		}
 
 		now := time.Now()
-		key := rateLimitKey(r)
+		key := rateLimitKey(r, l.trustProxy)
 		l.mu.Lock()
 		if l.lastSweep.IsZero() || now.Sub(l.lastSweep) >= l.interval {
 			for entryKey, entry := range l.entries {
@@ -75,21 +77,23 @@ func (l *rateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func rateLimitKey(r *http.Request) string {
+func rateLimitKey(r *http.Request, trustProxy bool) string {
 	if userID, ok := auth.UserIDFromContext(r.Context()); ok {
 		return "user:" + userID.String()
 	}
-	return "ip:" + clientIP(r)
+	return "ip:" + clientIP(r, trustProxy)
 }
 
-// La API vive detrás de nginx (ver README), que envía el IP real del cliente.
-func clientIP(r *http.Request) string {
-	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		return strings.TrimSpace(realIP)
-	}
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		first, _, _ := strings.Cut(forwarded, ",")
-		return strings.TrimSpace(first)
+// Los headers de proxy solo son fiables con TRUST_PROXY activo (la API vive detrás de nginx).
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+			return strings.TrimSpace(realIP)
+		}
+		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+			first, _, _ := strings.Cut(forwarded, ",")
+			return strings.TrimSpace(first)
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

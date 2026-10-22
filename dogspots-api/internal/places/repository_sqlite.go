@@ -295,13 +295,21 @@ func (r *SQLiteRepository) List(ctx context.Context, options ListOptions) (Place
 	}
 	if options.Sort == "rating" {
 		query += ` ORDER BY COALESCE(p.rating_avg, 0) DESC, p.created_at DESC, p.id DESC`
+	} else if options.Sort == "distance" && options.Lat != nil && options.Lng != nil {
+		cosLat := math.Cos(*options.Lat * math.Pi / 180)
+		query += ` ORDER BY (p.lat - ?)*(p.lat - ?) + ((p.lng - ?) * ?)*((p.lng - ?) * ?) ASC, p.created_at DESC, p.id DESC`
+		args = append(args, *options.Lat, *options.Lat, *options.Lng, cosLat, *options.Lng, cosLat)
 	} else {
 		query += ` ORDER BY p.created_at DESC, p.id DESC`
 	}
 	// Con radio exacta hay que descartar filas fuera del círculo en Go; el
 	// resto de consultas puede paginar en SQL.
-	limitInSQL := options.Sort != "distance" && !radius
-	if limitInSQL {
+	limitInSQL := !radius
+	// shortcut: distance ordering is a planar approximation over the newest/located window; swap for exact haversine in SQL if global precision matters.
+	if options.Sort == "distance" {
+		query += ` LIMIT ?`
+		args = append(args, options.Limit*10)
+	} else if limitInSQL {
 		query += ` LIMIT ?`
 		args = append(args, options.Limit+1)
 	}

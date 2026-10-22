@@ -12,7 +12,7 @@ import (
 
 func TestRateLimiterFallsBackToClientIP(t *testing.T) {
 	calls := 0
-	handler := NewRateLimiter(1, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := NewRateLimiter(1, time.Minute, false)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls++
 		w.WriteHeader(http.StatusCreated)
 	}))
@@ -35,7 +35,7 @@ func TestRateLimiterFallsBackToClientIP(t *testing.T) {
 }
 
 func TestRateLimiterKeysByForwardedClientIP(t *testing.T) {
-	handler := NewRateLimiter(1, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := NewRateLimiter(1, time.Minute, true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 	send := func(ip string) int {
@@ -57,6 +57,28 @@ func TestRateLimiterKeysByForwardedClientIP(t *testing.T) {
 	}
 }
 
+func TestRateLimiterIgnoresSpoofedIPWhenProxyUntrusted(t *testing.T) {
+	handler := NewRateLimiter(1, time.Minute, false)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+
+	send := func(realIP string) int {
+		request := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		request.RemoteAddr = "203.0.113.7:1234"
+		request.Header.Set("X-Real-IP", realIP)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response.Code
+	}
+
+	if code := send("198.51.100.1"); code != http.StatusCreated {
+		t.Fatalf("first request: expected 201, got %d", code)
+	}
+	if code := send("198.51.100.2"); code != http.StatusTooManyRequests {
+		t.Fatalf("spoofed X-Real-IP must not bypass the limit: expected 429, got %d", code)
+	}
+}
+
 func TestRateLimiterLimitsAuthenticatedUser(t *testing.T) {
 	manager := auth.NewTokenManager("rate-limit-test-secret", time.Minute)
 	userID := uuid.New()
@@ -65,7 +87,7 @@ func TestRateLimiterLimitsAuthenticatedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := 0
-	handler := auth.RequireAuth(manager, NewRateLimiter(2, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := auth.RequireAuth(manager, NewRateLimiter(2, time.Minute, false)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls++
 		w.WriteHeader(http.StatusCreated)
 	})))

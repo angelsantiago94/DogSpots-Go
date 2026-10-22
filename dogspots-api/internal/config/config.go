@@ -17,6 +17,7 @@ type Config struct {
 	JWTSecret       string
 	MediaDir        string
 	AllowedOrigins  []string
+	TrustProxy      bool
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 	Argon2Params    auth.Argon2Params
@@ -39,6 +40,8 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	trustProxy := strings.ToLower(os.Getenv("TRUST_PROXY"))
+	cfg.TrustProxy = trustProxy == "true" || trustProxy == "1"
 	cfg.AccessTokenTTL = accessTTL
 	cfg.RefreshTokenTTL = refreshTTL
 

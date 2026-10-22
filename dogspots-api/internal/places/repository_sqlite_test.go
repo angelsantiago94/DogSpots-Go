@@ -211,6 +211,51 @@ func TestListPaginatesAllRowsAcrossPages(t *testing.T) {
 	}
 }
 
+func TestListDistanceSortBoundsCandidates(t *testing.T) {
+	_, repo, ownerID := newTestRepository(t)
+	ctx := context.Background()
+	for i := range 25 {
+		if _, err := repo.Create(ctx, ownerID, CreatePlaceRequest{
+			Title: "Lugar " + strconv.Itoa(i), Lat: 40 + float64(i)*0.001, Lng: -3, Category: "park",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	options := ListOptions{Sort: "distance", Limit: 2, Lat: floatPointer(40), Lng: floatPointer(-3), RadiusM: 5000}
+	seen := make(map[uuid.UUID]bool)
+	var collected []PlaceSummary
+	for pages := 0; pages < 30; pages++ {
+		result, err := repo.List(ctx, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, item := range result.Items {
+			if seen[item.ID] {
+				t.Fatalf("duplicate place %s across pages", item.ID)
+			}
+			seen[item.ID] = true
+			collected = append(collected, item)
+		}
+		if result.NextCursor == nil {
+			break
+		}
+		options.Cursor = *result.NextCursor
+	}
+	if len(collected) == 0 {
+		t.Fatal("distance sort returned no places")
+	}
+	for i := 1; i < len(collected); i++ {
+		prev, curr := collected[i-1].DistanceM, collected[i].DistanceM
+		if prev == nil || curr == nil {
+			t.Fatalf("place %s missing distance", collected[i].ID)
+		}
+		if *curr < *prev {
+			t.Fatalf("distance decreased from %d to %d at position %d", *prev, *curr, i)
+		}
+	}
+}
+
 func TestPlaceHandlersValidateInputAndEnforceAuthor(t *testing.T) {
 	_, repo, _ := newTestRepository(t)
 	manager := auth.NewTokenManager("test-secret", time.Minute)

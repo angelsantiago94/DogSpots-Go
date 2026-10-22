@@ -11,6 +11,8 @@ services:
     env_file: .env
     environment:
       APP_ENV: ${APP_ENV:-development}
+      # true solo si la API está detrás de nginx; si no, se puede falsear X-Real-IP
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       PORT: "8080"
       DB_PATH: /data/db/dogspots.db
       MEDIA_DIR: /data/media

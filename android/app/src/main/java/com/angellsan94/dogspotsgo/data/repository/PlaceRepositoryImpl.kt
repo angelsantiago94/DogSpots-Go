@@ -31,7 +31,8 @@ class PlaceRepositoryImpl @Inject constructor(
             maxLat = maxLat,
             maxLng = maxLng,
             category = category,
-            minRating = minRating
+            minRating = minRating,
+            limit = 100
         )
         response.items.map { dto ->
             Place(
@@ -216,7 +217,7 @@ class PlaceRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMyPlaces(): List<Place> = handleApiCall {
-        val response = placesApiService.getMyPlaces()
+        val response = placesApiService.getMyPlaces(limit = 100)
         response.items.map { dto ->
             Place(
                 id = dto.id,

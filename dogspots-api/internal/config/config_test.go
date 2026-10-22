@@ -62,6 +62,51 @@ func TestLoadArgon2DefaultsAndValidation(t *testing.T) {
 	}
 }
 
+func TestLoadTrustProxy(t *testing.T) {
+	cases := map[string]bool{
+		"true":  true,
+		"1":     true,
+		"":      false,
+		"yes":   false,
+		"false": false,
+	}
+	for value, want := range cases {
+		t.Run("value="+value, func(t *testing.T) {
+			t.Setenv("JWT_SECRET", "test-secret")
+			t.Setenv("TRUST_PROXY", value)
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if cfg.TrustProxy != want {
+				t.Errorf("TrustProxy = %v, want %v for TRUST_PROXY=%q", cfg.TrustProxy, want, value)
+			}
+		})
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		t.Setenv("JWT_SECRET", "test-secret")
+		value, exists := os.LookupEnv("TRUST_PROXY")
+		if err := os.Unsetenv("TRUST_PROXY"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if exists {
+				_ = os.Setenv("TRUST_PROXY", value)
+			} else {
+				_ = os.Unsetenv("TRUST_PROXY")
+			}
+		})
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg.TrustProxy {
+			t.Error("TrustProxy = true, want false when TRUST_PROXY is unset")
+		}
+	})
+}
+
 func TestLoadTokenTTLDefaults(t *testing.T) {
 	t.Setenv("JWT_SECRET", "test-secret")
 	for _, key := range []string{"ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL"} {
