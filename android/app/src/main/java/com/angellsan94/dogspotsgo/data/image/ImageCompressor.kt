@@ -48,7 +48,7 @@ fun compressToJpeg(bytes: ByteArray): ByteArray {
 
     val oriented = applyOrientation(scaled, orientation)
     // JPEG no soporta transparencia: PNG/WebP con alfa se aplanan sobre blanco.
-    val flattened = if (sourceHasAlpha && oriented.hasAlpha) {
+    val flattened = if (sourceHasAlpha && oriented.hasAlpha()) {
         Bitmap.createBitmap(oriented.width, oriented.height, Bitmap.Config.ARGB_8888).also { bitmap ->
             Canvas(bitmap).apply {
                 drawColor(Color.WHITE)
