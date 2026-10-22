@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	maxPhotoSize  = 5 << 20
-	maxPhotos     = 8
+	maxPhotoSize  = 10 << 20
+	maxPhotos     = 30
 	maxCaptionLen = 200
 )
 
@@ -50,13 +50,8 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		writePhotoProblem(w, http.StatusBadRequest, "Bad Request", "Invalid place identifier", "invalid_place_id")
 		return
 	}
-	place, err := h.places.Get(r.Context(), placeID, nil)
-	if err != nil {
+	if _, err := h.places.Get(r.Context(), placeID, nil); err != nil {
 		writePhotoPlaceError(w, err)
-		return
-	}
-	if place.Author.ID != userID {
-		writePhotoProblem(w, http.StatusForbidden, "Forbidden", "Only the place owner can upload photos", "forbidden")
 		return
 	}
 
@@ -64,7 +59,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxPhotoSize); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
-			writePhotoProblem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "The uploaded file exceeds 5 MB", "file_too_large")
+			writePhotoProblem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "The uploaded file exceeds 10 MB", "file_too_large")
 		} else {
 			writePhotoProblem(w, http.StatusUnprocessableEntity, "Validation Error", "A multipart file field named 'file' is required", "validation_error")
 		}
@@ -85,7 +80,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	original, thumbnail, info, err := processor.ProcessImage(file, maxPhotoSize)
 	if err != nil {
 		if errors.Is(err, processor.ErrFileTooLarge) {
-			writePhotoProblem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "The uploaded file exceeds 5 MB", "file_too_large")
+			writePhotoProblem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "The uploaded file exceeds 10 MB", "file_too_large")
 		} else if errors.Is(err, processor.ErrUnsupportedFormat) {
 			writePhotoProblem(w, http.StatusUnsupportedMediaType, "Unsupported Media Type", "Only JPEG, PNG and WebP images are supported", "unsupported_media_type")
 		} else {
@@ -94,7 +89,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if header.Size > maxPhotoSize {
-		writePhotoProblem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "The uploaded file exceeds 5 MB", "file_too_large")
+		writePhotoProblem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "The uploaded file exceeds 10 MB", "file_too_large")
 		return
 	}
 
@@ -120,7 +115,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		_ = h.storage.Delete(context.Background(), url)
 		_ = h.storage.Delete(context.Background(), thumbURL)
 		if errors.Is(err, ErrPhotoLimitReached) {
-			writePhotoProblem(w, http.StatusUnprocessableEntity, "Validation Error", "A place can have at most 8 photos", "photo_limit_reached")
+			writePhotoProblem(w, http.StatusUnprocessableEntity, "Validation Error", "A place can have at most 30 photos", "photo_limit_reached")
 		} else {
 			writePhotoProblem(w, http.StatusInternalServerError, "Internal Server Error", "Failed to save photo metadata", "database_error")
 		}

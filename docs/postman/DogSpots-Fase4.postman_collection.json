@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "DogSpots - Fase 4 - Fotos",
-    "description": "Flujo de prueba para subir, servir y borrar fotos. Ejecuta los requests en orden: login, crear lugar de prueba, subir foto, comprobar original/miniatura y borrar. En 'Subir foto', selecciona una imagen JPEG, PNG o WebP de hasta 5 MB desde el selector de archivo de Postman. El backend la normaliza a JPEG.",
+    "description": "Flujo de prueba para subir, servir y borrar fotos. Ejecuta los requests en orden: login, crear lugar de prueba, subir foto, comprobar original/miniatura y borrar. En 'Subir foto', selecciona una imagen JPEG, PNG o WebP de hasta 10 MB desde el selector de archivo de Postman. El backend la normaliza a JPEG.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

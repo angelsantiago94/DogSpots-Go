@@ -36,3 +36,9 @@ type UserResponse struct {
 	Email string    `json:"email"`
 	Name  string    `json:"name"`
 }
+
+// PublicUserResponse es la representación pública de un usuario, sin datos privados.
+type PublicUserResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}

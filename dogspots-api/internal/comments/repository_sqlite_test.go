@@ -174,4 +174,13 @@ func TestCreateReplyAndDeleteComment(t *testing.T) {
 	if commentCount != 2 {
 		t.Fatalf("expected logical delete to decrement active comment_count, got %d", commentCount)
 	}
+	if err := repo.Delete(context.Background(), root.ID, userA); err != ErrCommentNotFound {
+		t.Fatalf("expected deleting twice to return ErrCommentNotFound, got %v", err)
+	}
+	if err := db.QueryRow(`SELECT comment_count FROM places WHERE id = ?`, placeID.String()).Scan(&commentCount); err != nil {
+		t.Fatal(err)
+	}
+	if commentCount != 2 {
+		t.Fatalf("expected double delete to keep comment_count at 2, got %d", commentCount)
+	}
 }

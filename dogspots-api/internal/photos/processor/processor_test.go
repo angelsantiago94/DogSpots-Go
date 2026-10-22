@@ -2,7 +2,9 @@ package processor
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -52,6 +54,33 @@ func TestProcessImageRejectsOversizeAndInvalidInput(t *testing.T) {
 	if _, _, _, err := ProcessImage(strings.NewReader("not an image"), 100); !errors.Is(err, ErrUnsupportedFormat) {
 		t.Fatalf("invalid image error = %v", err)
 	}
+}
+
+func TestProcessImageRejectsTooManyPixels(t *testing.T) {
+	input := pngHeader(5000, 4000)
+	_, _, _, err := ProcessImage(bytes.NewReader(input), 1<<20)
+	if !errors.Is(err, ErrUnsupportedFormat) {
+		t.Fatalf("ProcessImage() error = %v, want unsupported format", err)
+	}
+}
+
+func pngHeader(width, height uint32) []byte {
+	data := make([]byte, 13)
+	binary.BigEndian.PutUint32(data[0:4], width)
+	binary.BigEndian.PutUint32(data[4:8], height)
+	data[8] = 8 // profundidad de bits
+	data[9] = 2 // color RGB
+
+	var length [4]byte
+	binary.BigEndian.PutUint32(length[:], uint32(len(data)))
+	var checksum [4]byte
+	binary.BigEndian.PutUint32(checksum[:], crc32.ChecksumIEEE(append([]byte("IHDR"), data...)))
+
+	header := []byte("\x89PNG\r\n\x1a\n")
+	header = append(header, length[:]...)
+	header = append(header, "IHDR"...)
+	header = append(header, data...)
+	return append(header, checksum[:]...)
 }
 
 func TestProcessImageRemovesEXIFSegment(t *testing.T) {

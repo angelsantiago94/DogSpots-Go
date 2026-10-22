@@ -23,11 +23,14 @@ sealed interface PlaceDetailUiState {
         val repliesMap: Map<String, List<Comment>> = emptyMap(),
         val replyingTo: Comment? = null,
         val isOwner: Boolean = false,
+        val currentUserId: String? = null,
         val isUploadingPhoto: Boolean = false,
         val photoUploadError: String? = null
     ) : PlaceDetailUiState
     data class Error(val message: String) : PlaceDetailUiState
 }
+
+const val MAX_PLACE_PHOTOS = 30
 
 @HiltViewModel
 class PlaceDetailViewModel @Inject constructor(
@@ -53,13 +56,19 @@ class PlaceDetailViewModel @Inject constructor(
             try {
                 val place = placeRepository.getPlaceDetail(placeId)
                 val comments = commentRepository.getComments(placeId)
-                val isOwner = try {
-                    userRepository.getMyProfile().id == place.authorId
+                val currentUserId = try {
+                    userRepository.getMyProfile().id
                 } catch (_: Exception) {
-                    false
+                    null
                 }
+                val isOwner = currentUserId == place.authorId
                 _uiState.update {
-                    PlaceDetailUiState.Success(place = place, comments = comments, isOwner = isOwner)
+                    PlaceDetailUiState.Success(
+                        place = place,
+                        comments = comments,
+                        isOwner = isOwner,
+                        currentUserId = currentUserId
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update { PlaceDetailUiState.Error(e.localizedMessage ?: "Error al cargar el detalle del lugar.") }
@@ -69,7 +78,7 @@ class PlaceDetailViewModel @Inject constructor(
 
     fun uploadPhoto(image: ByteArray, fileName: String, mimeType: String) {
         val currentState = _uiState.value as? PlaceDetailUiState.Success ?: return
-        if (!currentState.isOwner || currentState.place.photos.size >= 8 || currentState.isUploadingPhoto) return
+        if (currentState.place.photos.size >= MAX_PLACE_PHOTOS || currentState.isUploadingPhoto) return
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -100,6 +109,26 @@ class PlaceDetailViewModel @Inject constructor(
     fun showPhotoUploadError(message: String) {
         _uiState.update { state ->
             (state as? PlaceDetailUiState.Success)?.copy(photoUploadError = message) ?: state
+        }
+    }
+
+    fun deletePhoto(photoId: String) {
+        viewModelScope.launch {
+            try {
+                placeRepository.deletePhoto(placeId, photoId)
+                _uiState.update { state ->
+                    (state as? PlaceDetailUiState.Success)?.copy(
+                        place = state.place.copy(photos = state.place.photos.filterNot { it.id == photoId }),
+                        photoUploadError = null
+                    ) ?: state
+                }
+            } catch (e: Exception) {
+                _uiState.update { state ->
+                    (state as? PlaceDetailUiState.Success)?.copy(
+                        photoUploadError = e.localizedMessage ?: "No se pudo borrar la foto."
+                    ) ?: state
+                }
+            }
         }
     }
 

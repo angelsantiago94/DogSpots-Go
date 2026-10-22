@@ -98,7 +98,7 @@ El contrato de la API está en `openapi.yaml` y es la fuente de verdad entre bac
 
 ### Fase 4 — Fotos (3–4 días)
 
-- [x] B-4.1 `POST /places/{id}/photos` multipart con límite de 5 MB y máximo de 8 fotos por lugar.
+- [x] B-4.1 `POST /places/{id}/photos` multipart con límite de 10 MB y máximo de 30 fotos por lugar.
 - [x] B-4.2 Validar el tipo real del fichero (detección por contenido, no por extensión): JPEG, PNG, WebP.
 - [x] B-4.3 Eliminar metadatos EXIF (especialmente la geolocalización), reescalar la imagen y convertir a un formato eficiente.
 - [x] B-4.4 Generar miniatura.

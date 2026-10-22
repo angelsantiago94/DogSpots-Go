@@ -31,7 +31,8 @@ class PlaceRepositoryImpl @Inject constructor(
             maxLat = maxLat,
             maxLng = maxLng,
             category = category,
-            minRating = minRating
+            minRating = minRating,
+            limit = 100
         )
         response.items.map { dto ->
             Place(
@@ -67,6 +68,7 @@ class PlaceRepositoryImpl @Inject constructor(
                     width = it.width,
                     height = it.height,
                     position = it.position,
+                    uploadedBy = it.uploaded_by,
                     createdAt = it.created_at
                 )
             },
@@ -115,6 +117,7 @@ class PlaceRepositoryImpl @Inject constructor(
                     width = it.width,
                     height = it.height,
                     position = it.position,
+                    uploadedBy = it.uploaded_by,
                     createdAt = it.created_at
                 )
             },
@@ -164,6 +167,7 @@ class PlaceRepositoryImpl @Inject constructor(
                     width = it.width,
                     height = it.height,
                     position = it.position,
+                    uploadedBy = it.uploaded_by,
                     createdAt = it.created_at
                 )
             },
@@ -197,6 +201,7 @@ class PlaceRepositoryImpl @Inject constructor(
             width = dto.width,
             height = dto.height,
             position = dto.position,
+            uploadedBy = dto.uploaded_by,
             createdAt = dto.created_at
         )
     }
@@ -206,8 +211,13 @@ class PlaceRepositoryImpl @Inject constructor(
         Unit
     }
 
+    override suspend fun deletePhoto(placeId: String, photoId: String) = handleApiCall {
+        placesApiService.deletePhoto(placeId, photoId)
+        Unit
+    }
+
     override suspend fun getMyPlaces(): List<Place> = handleApiCall {
-        val response = placesApiService.getMyPlaces()
+        val response = placesApiService.getMyPlaces(limit = 100)
         response.items.map { dto ->
             Place(
                 id = dto.id,

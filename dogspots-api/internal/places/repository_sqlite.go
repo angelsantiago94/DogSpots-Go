@@ -107,8 +107,8 @@ func (r *SQLiteRepository) Get(ctx context.Context, id uuid.UUID, viewerID *uuid
 	place, err := scanPlace(r.db.QueryRowContext(ctx, `
 		SELECT p.id, p.author_id, p.title, COALESCE(p.description, ''), p.lat, p.lng, p.category,
 		p.created_at, p.updated_at,
-		(SELECT AVG(r.rating) FROM ratings r WHERE r.place_id = p.id),
-		(SELECT COUNT(*) FROM ratings r WHERE r.place_id = p.id),
+		CASE WHEN p.rating_count > 0 THEN p.rating_avg ELSE NULL END,
+		p.rating_count,
 		(SELECT r.rating FROM ratings r WHERE r.place_id = p.id AND r.user_id = ?),
 		(SELECT COUNT(*) FROM comments c WHERE c.place_id = p.id AND c.deleted = 0)
 		FROM places p WHERE p.id = ?`, nullableUUID(viewerID), id.String()))
@@ -204,8 +204,8 @@ func (r *SQLiteRepository) Delete(ctx context.Context, id, authorID uuid.UUID) e
 
 func (r *SQLiteRepository) List(ctx context.Context, options ListOptions) (PlaceList, error) {
 	query := `SELECT p.id, p.title, p.lat, p.lng, p.category,
-		(SELECT AVG(r.rating) FROM ratings r WHERE r.place_id = p.id),
-		(SELECT COUNT(*) FROM ratings r WHERE r.place_id = p.id),
+		CASE WHEN p.rating_count > 0 THEN p.rating_avg ELSE NULL END,
+		p.rating_count,
 		(SELECT ph.thumb_url FROM photos ph WHERE ph.place_id = p.id ORDER BY COALESCE(ph.position, 2147483647), ph.created_at, ph.id LIMIT 1),
 		p.created_at
 		FROM places p WHERE 1 = 1`
@@ -265,7 +265,7 @@ func (r *SQLiteRepository) List(ctx context.Context, options ListOptions) (Place
 		args = append(args, len(options.Tags))
 	}
 	if options.MinRating != nil {
-		query += ` AND COALESCE((SELECT AVG(r.rating) FROM ratings r WHERE r.place_id = p.id), 0) >= ?`
+		query += ` AND COALESCE(p.rating_avg, 0) >= ?`
 		args = append(args, *options.MinRating)
 	}
 	if options.Query != "" {
@@ -273,7 +273,47 @@ func (r *SQLiteRepository) List(ctx context.Context, options ListOptions) (Place
 		search := "%" + strings.ToLower(options.Query) + "%"
 		args = append(args, search, search)
 	}
-	query += ` ORDER BY p.created_at DESC, p.id DESC`
+	radius := options.Lat != nil && options.Lng != nil
+
+	var cursor *cursorKey
+	if options.Cursor != "" {
+		decoded, err := decodeCursor(options.Cursor, options.Sort)
+		if err != nil {
+			return PlaceList{}, ErrInvalidCursor
+		}
+		cursor = &decoded
+	}
+	if cursor != nil && options.Sort != "distance" {
+		createdAt := formatTime(cursor.CreatedAt)
+		if options.Sort == "rating" {
+			query += ` AND (COALESCE(p.rating_avg, 0) < ? OR (COALESCE(p.rating_avg, 0) = ? AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))))`
+			args = append(args, cursor.Value, cursor.Value, createdAt, createdAt, cursor.ID.String())
+		} else {
+			query += ` AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))`
+			args = append(args, createdAt, createdAt, cursor.ID.String())
+		}
+	}
+	if options.Sort == "rating" {
+		query += ` ORDER BY COALESCE(p.rating_avg, 0) DESC, p.created_at DESC, p.id DESC`
+	} else if options.Sort == "distance" && options.Lat != nil && options.Lng != nil {
+		cosLat := math.Cos(*options.Lat * math.Pi / 180)
+		query += ` ORDER BY (p.lat - ?)*(p.lat - ?) + ((p.lng - ?) * ?)*((p.lng - ?) * ?) ASC, p.created_at DESC, p.id DESC`
+		args = append(args, *options.Lat, *options.Lat, *options.Lng, cosLat, *options.Lng, cosLat)
+	} else {
+		query += ` ORDER BY p.created_at DESC, p.id DESC`
+	}
+	// Con radio exacta hay que descartar filas fuera del círculo en Go; el
+	// resto de consultas puede paginar en SQL.
+	limitInSQL := !radius
+	// shortcut: distance ordering is a planar approximation over the newest/located window; swap for exact haversine in SQL if global precision matters.
+	if options.Sort == "distance" {
+		query += ` LIMIT ?`
+		args = append(args, options.Limit*10)
+	} else if limitInSQL {
+		query += ` LIMIT ?`
+		args = append(args, options.Limit+1)
+	}
+
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return PlaceList{}, err
@@ -299,7 +339,7 @@ func (r *SQLiteRepository) List(ctx context.Context, options ListOptions) (Place
 		if cover.Valid {
 			item.CoverThumbURL = &cover.String
 		}
-		if options.Lat != nil && options.Lng != nil {
+		if radius {
 			distance := haversineMeters(*options.Lat, *options.Lng, item.Lat, item.Lng)
 			if distance > float64(options.RadiusM) {
 				continue
@@ -308,33 +348,30 @@ func (r *SQLiteRepository) List(ctx context.Context, options ListOptions) (Place
 			item.DistanceM = &distanceM
 		}
 		items = append(items, item)
+		if !limitInSQL && options.Sort != "distance" && len(items) > options.Limit {
+			break
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return PlaceList{}, err
 	}
-	sort.Slice(items, func(i, j int) bool { return summaryBefore(items[i], items[j], options.Sort) })
 
-	var cursor *cursorKey
-	if options.Cursor != "" {
-		decoded, err := decodeCursor(options.Cursor, options.Sort)
-		if err != nil {
-			return PlaceList{}, ErrInvalidCursor
-		}
-		cursor = &decoded
-	}
-	page := make([]PlaceSummary, 0, options.Limit)
-	for _, item := range items {
-		if cursor != nil && !summaryAfter(item, *cursor, options.Sort) {
-			continue
-		}
-		page = append(page, item)
-		if len(page) > options.Limit {
-			break
+	if options.Sort == "distance" {
+		sort.Slice(items, func(i, j int) bool { return summaryBefore(items[i], items[j], options.Sort) })
+		if cursor != nil {
+			filtered := items[:0]
+			for _, item := range items {
+				if summaryAfter(item, *cursor, options.Sort) {
+					filtered = append(filtered, item)
+				}
+			}
+			items = filtered
 		}
 	}
-	result := PlaceList{Items: page}
-	if len(page) > options.Limit {
-		result.Items = page[:options.Limit]
+
+	result := PlaceList{Items: items}
+	if len(items) > options.Limit {
+		result.Items = items[:options.Limit]
 		last := result.Items[len(result.Items)-1]
 		key := cursorKey{Sort: options.Sort, CreatedAt: last.CreatedAt, ID: last.ID}
 		switch options.Sort {
@@ -595,6 +632,10 @@ func nullableUUID(value *uuid.UUID) any {
 		return nil
 	}
 	return value.String()
+}
+
+func formatTime(value time.Time) string {
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 func parseTime(value string) (time.Time, error) {

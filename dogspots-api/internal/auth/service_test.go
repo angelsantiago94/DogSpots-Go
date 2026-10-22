@@ -2,7 +2,10 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +106,28 @@ func (r *fakeUserRepository) CreateRefreshToken(_ context.Context, token Refresh
 	r.refreshByID[stored.ID] = stored
 	r.refreshByHash[stored.TokenHash] = stored
 	return stored, nil
+}
+
+func (r *fakeUserRepository) RotateRefreshToken(_ context.Context, id uuid.UUID, token RefreshTokenParams) (bool, error) {
+	existing, ok := r.refreshByID[id]
+	if !ok || existing.IsRevoked {
+		return false, nil
+	}
+	existing.IsRevoked = true
+	r.refreshByID[id] = existing
+	r.refreshByHash[existing.TokenHash] = existing
+
+	stored := RefreshToken{
+		ID:        token.ID,
+		UserID:    token.UserID,
+		TokenHash: token.TokenHash,
+		FamilyID:  token.FamilyID,
+		ExpiresAt: token.ExpiresAt,
+		CreatedAt: token.CreatedAt,
+	}
+	r.refreshByID[stored.ID] = stored
+	r.refreshByHash[stored.TokenHash] = stored
+	return true, nil
 }
 
 func (r *fakeUserRepository) GetRefreshToken(_ context.Context, id uuid.UUID) (RefreshToken, error) {
@@ -216,6 +241,37 @@ func TestRefreshRotatesTokenAndRejectsReplay(t *testing.T) {
 	_, err = service.Refresh(context.Background(), RefreshRequest{RefreshToken: resp.RefreshToken})
 	if !errors.Is(err, ErrTokenRevoked) {
 		t.Fatalf("Refresh replay error = %v, want %v", err, ErrTokenRevoked)
+	}
+}
+
+func TestGetUserByIDOmitsEmail(t *testing.T) {
+	repo := newFakeUserRepository()
+	now := time.Now().UTC()
+	user, err := repo.CreateUser(context.Background(), UserCreateParams{
+		ID: uuid.New(), Email: "alice@example.com", PasswordHash: "hash", Name: "Alice",
+		CreatedAt: now, UpdatedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/users/"+user.ID.String(), nil)
+	request.SetPathValue("userId", user.ID.String())
+	response := httptest.NewRecorder()
+	NewHandler(nil, repo).GetUserByID(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("GetUserByID() status = %d", response.Code)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := body["email"]; exists {
+		t.Fatal("public profile must not expose the email")
+	}
+	if body["name"] != "Alice" {
+		t.Fatalf("public profile name = %v", body["name"])
 	}
 }
 

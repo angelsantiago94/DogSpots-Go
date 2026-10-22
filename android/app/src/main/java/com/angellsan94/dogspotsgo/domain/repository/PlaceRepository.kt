@@ -38,6 +38,8 @@ interface PlaceRepository {
 
     suspend fun uploadPhoto(placeId: String, image: ByteArray, fileName: String, mimeType: String): Photo
 
+    suspend fun deletePhoto(placeId: String, photoId: String)
+
     suspend fun deletePlace(placeId: String)
 
     suspend fun getMyPlaces(): List<Place>

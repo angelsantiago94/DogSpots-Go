@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,15 +17,18 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.angellsan94.dogspotsgo.R
 import com.angellsan94.dogspotsgo.ui.place.PlaceDetailScreen
 import com.angellsan94.dogspotsgo.ui.place.PlaceDetailViewModel
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.annotations.IconFactory
 import org.maplibre.android.annotations.MarkerOptions
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.utils.BitmapUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +90,13 @@ fun MapScreen(
 
     val sheetState = rememberModalBottomSheetState()
 
-    LaunchedEffect(mapLibreMap, uiState.places) {
+    val userIcon = remember(context) {
+        BitmapUtils.getBitmapFromDrawable(
+            ContextCompat.getDrawable(context, R.drawable.ic_user_location)
+        )?.let { IconFactory.getInstance(context).fromBitmap(it) }
+    }
+
+    LaunchedEffect(mapLibreMap, uiState.places, uiState.userLocation) {
         val map = mapLibreMap ?: return@LaunchedEffect
         map.clear()
         uiState.places.forEach { place ->
@@ -93,6 +106,15 @@ fun MapScreen(
                     .title(place.title)
                     .snippet(place.id)
             )
+        }
+        uiState.userLocation?.let { location ->
+            userIcon?.let { icon ->
+                map.addMarker(
+                    MarkerOptions()
+                        .position(LatLng(location.latitude, location.longitude))
+                        .icon(icon)
+                )
+            }
         }
         map.setOnMarkerClickListener { marker ->
             uiState.places.firstOrNull { it.id == marker.snippet }?.let { place ->
@@ -106,22 +128,31 @@ fun MapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("DogSpots Go") },
-                actions = {
-                    TextButton(onClick = onNavigateToCreate) {
-                        Text("+ Crear")
+                title = { Text("DogSpots Go") }
+            )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    IconButton(onClick = onNavigateToCreate) {
+                        Icon(Icons.Filled.Add, contentDescription = "Crear lugar")
                     }
                     TextButton(onClick = onNavigateToMyPlaces) {
                         Text("Mis Lugares")
                     }
-                    TextButton(onClick = onNavigateToProfile) {
-                        Text("Perfil")
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(Icons.Filled.Person, contentDescription = "Perfil")
                     }
-                    TextButton(onClick = onLogout) {
-                        Text("Salir")
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir")
                     }
                 }
-            )
+            }
         },
         floatingActionButton = {
             Button(
